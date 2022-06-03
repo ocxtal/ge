@@ -163,8 +163,6 @@ fn main() {
     }
     acc.dump_hunk(&mut patch);
 
-    eprintln!("{}", std::str::from_utf8(&patch).unwrap());
-
     let mut apply = Command::new("git")
         .args(&["apply", "--allow-empty", "--unidiff-zero", "-"])
         .stdin(Stdio::piped())

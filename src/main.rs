@@ -170,10 +170,13 @@ fn main() {
         .stdin(Stdio::piped())
         .spawn()
         .unwrap();
-    let mut stdin = apply.stdin.take().unwrap();
-    stdin.write_all(&patch).unwrap();
 
-    // apply.wait().unwrap();
+    // we expect it's dropped after use
+    {
+        let mut stdin = apply.stdin.take().unwrap();
+        stdin.write_all(&patch).unwrap();
+    }
+    apply.wait().unwrap();
 }
 
 struct HunkAccumulator<'a, 'b> {

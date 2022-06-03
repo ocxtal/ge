@@ -166,7 +166,7 @@ fn main() {
     eprintln!("{}", std::str::from_utf8(&patch).unwrap());
 
     let mut apply = Command::new("git")
-        .args(&["apply", "-"])
+        .args(&["apply", "--allow-empty", "-"])
         .stdin(Stdio::piped())
         .spawn()
         .unwrap();

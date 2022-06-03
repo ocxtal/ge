@@ -44,10 +44,11 @@ struct GrepArgs<'a> {
 impl Git {
     fn new() -> Result<Self> {
         // check the availability of the git command
-        Command::new("git")
+        let output = Command::new("git")
             .args(&["--version"])
             .output()
             .context("\"git\" command not found.")?;
+        assert!(output.status.success());
 
         Ok(Git)
     }
@@ -104,6 +105,125 @@ impl Git {
     }
 }
 
+struct EditConfig<'a> {
+    header: &'a str,
+    hunk: &'a str,
+}
+
+struct PatchBuilder<'a> {
+    config: &'a EditConfig<'a>,
+    files: HashMap<String, usize>,
+    lines: HashMap<(usize, usize), (usize, String)>,
+}
+
+impl<'a> PatchBuilder<'a> {
+    fn from_grep(config: &'a EditConfig, raw: &str) -> Result<Self> {
+        let mut locs = PatchBuilder {
+            config,
+            files: HashMap::new(),
+            lines: HashMap::new(),
+        };
+
+        locs.parse_grep(raw)?;
+        Ok(locs)
+    }
+
+    fn parse_grep(&mut self, raw: &str) -> Result<()> {
+        let mut prev_id = 0;
+        let mut prev_pos = 0;
+        let mut prev_base_pos = 0;
+        for l in raw.trim().lines() {
+            let v: Vec<_> = l.splitn(3, &[':', '-'][..]).collect();
+            if v.len() != 3 {
+                return Err(anyhow!("unexpected grep line: {}", l));
+            }
+
+            if v[0] == "" {
+                debug_assert!(v[1] == "" && v[2] == "");
+                (prev_id, prev_pos, prev_base_pos) = (0, 0, 0);
+                continue;
+            }
+
+            let filename = &v[0];
+            let ln: usize = v[1]
+                .parse()
+                .with_context(|| format!("broken grep line number: {}", &v[1]))?;
+            debug_assert!(ln > 0);
+
+            let next_id = self.files.len() + 1;
+            let id = *self.files.entry(filename.to_string()).or_insert(next_id);
+            debug_assert!(id > 0);
+
+            if prev_id == id && prev_pos == ln - 1 {
+                // continues
+                self.lines.entry((id, prev_base_pos)).and_modify(|e| {
+                    e.0 = ln + 1 - prev_base_pos;
+                    e.1.push_str(&v[2]); // we may need to add a prefix here
+                    e.1.push('\n');
+                });
+            } else {
+                self.lines.insert((id, ln), (1, format!("{}\n", v[2])));
+                prev_base_pos = ln;
+            }
+
+            prev_id = id;
+            prev_pos = ln;
+        }
+
+        Ok(())
+    }
+
+    fn format_halfdiff(&self, drain: &mut dyn Write) -> Result<()> {
+        // index files
+        let index: HashMap<usize, &str> = self.files.iter().map(|x| (*x.1, x.0.as_str())).collect();
+
+        // format and dump file content
+        let mut keys: Vec<_> = self.lines.keys().collect();
+        keys.sort();
+
+        let mut prev_id = 0;
+        for &(id, pos) in keys {
+            if prev_id != id {
+                let filename = index.get(&id).unwrap();
+                drain.write_all(format!("{} {}\n", self.config.header, filename).as_bytes())?;
+                prev_id = id;
+            }
+
+            let (len, content) = self.lines.get(&(id, pos)).unwrap();
+            drain.write_all(
+                format!("{} {},{}\n{}", self.config.hunk, pos, len, content).as_bytes(),
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn parse_halfdiff(&self, diff: &str) -> Result<String> {
+        let mut patch = String::new();
+        let mut acc = HunkAccumulator::new(&self.lines);
+
+        for l in diff.lines() {
+            if l.starts_with(&self.config.header) {
+                acc.dump_hunk(&mut patch);
+
+                let filename = l[self.config.header.len()..].trim();
+                patch.push_str(&format!("--- a/{}\n+++ b/{}\n", filename, filename));
+
+                let filename = self.files.get(filename).unwrap();
+                acc.open_new_file(*filename);
+            } else if l.starts_with(&self.config.hunk) {
+                acc.dump_hunk(&mut patch);
+                acc.open_new_hunk(l[self.config.hunk.len()..].trim());
+            } else {
+                acc.push_line(l);
+            }
+        }
+        acc.dump_hunk(&mut patch);
+
+        Ok(patch)
+    }
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
@@ -115,73 +235,21 @@ fn main() -> Result<()> {
         after: args.after,
     })?;
 
-    // save original lines and compose file content to edit
-    let mut filenames: HashMap<String, usize> = HashMap::new();
-    let mut original: HashMap<(usize, usize), (usize, String)> = HashMap::new();
+    let config = &EditConfig {
+        header: &args.header,
+        hunk: &args.hunk,
+    };
+    let gen = PatchBuilder::from_grep(&config, &grep_output)?;
 
-    let mut prev_id = 0;
-    let mut prev_pos = 0;
-    let mut prev_base_pos = 0;
-    for l in grep_output.trim().lines() {
-        let v: Vec<_> = l.splitn(3, &[':', '-'][..]).collect();
+    let tmp = NamedTempFile::new().context("failed to create tempfile")?;
+    let mut tmp = BufWriter::new(tmp);
 
-        if v[0] == "" {
-            debug_assert!(v[1] == "" && v[2] == "");
-            (prev_id, prev_pos, prev_base_pos) = (0, 0, 0);
-            continue;
-        }
-
-        let filename = &v[0];
-        let ln: usize = v[1].parse().unwrap();
-        debug_assert!(ln > 0);
-
-        let next_id = filenames.len() + 1;
-        let id = *filenames.entry(filename.to_string()).or_insert(next_id);
-        debug_assert!(id > 0);
-
-        if prev_id == id && prev_pos == ln - 1 {
-            // continues
-            original.entry((id, prev_base_pos)).and_modify(|e| {
-                e.0 = ln + 1 - prev_base_pos;
-                e.1.push_str(&v[2]); // we may need to add a prefix here
-                e.1.push('\n');
-            });
-        } else {
-            original.insert((id, ln), (1, format!("{}\n", v[2])));
-            prev_base_pos = ln;
-        }
-
-        prev_id = id;
-        prev_pos = ln;
-    }
-
-    // index files
-    let index: HashMap<usize, &str> = filenames.iter().map(|x| (*x.1, x.0.as_str())).collect();
-
-    // format and dump file content
-    let mut keys: Vec<_> = original.keys().collect();
-    keys.sort();
-
-    let mut file = BufWriter::new(NamedTempFile::new().unwrap());
-
-    let mut prev_id = 0;
-    for &(id, pos) in keys {
-        if prev_id != id {
-            let filename = index.get(&id).unwrap();
-            file.write_all(format!("{} {}\n", args.header, filename).as_bytes())
-                .unwrap();
-            prev_id = id;
-        }
-
-        let (len, content) = original.get(&(id, pos)).unwrap();
-        file.write_all(format!("{} {},{}\n{}", args.hunk, pos, len, content).as_bytes())
-            .unwrap();
-    }
-    file.flush().unwrap();
+    gen.format_halfdiff(&mut tmp)?;
+    tmp.flush().context("failed flush the tempfile")?;
 
     // edit!
-    let file = file.into_inner().unwrap();
-    let name = file.path().to_str().unwrap().to_string();
+    let tmp = tmp.into_inner().unwrap();
+    let name = tmp.path().to_str().unwrap().to_string();
 
     let editor = if let Some(editor) = args.editor {
         editor
@@ -195,31 +263,20 @@ fn main() -> Result<()> {
     editor.wait().unwrap();
 
     // reload the content
-    let mut file = BufReader::new(file.reopen().unwrap());
-    let mut v = Vec::new();
-    file.read_to_end(&mut v).unwrap();
+    let tmp = tmp.reopen().context(
+        "the tempfile is missing (the editor might have closed or changed the inode of the file)",
+    )?;
+    let mut tmp = BufReader::new(tmp);
+    let mut diff = Vec::new();
+    tmp.read_to_end(&mut diff)
+        .context("failed to read the edit result")?;
 
     // parse
-    let mut patch = Vec::new();
-    let mut acc = HunkAccumulator::new(&original);
-    for l in std::str::from_utf8(&v).unwrap().lines() {
-        if l.starts_with(&args.header) {
-            acc.dump_hunk(&mut patch);
+    let diff = std::str::from_utf8(&diff)
+        .context("failed to interpret the edit result as a UTF-8 string")?;
+    let patch = gen.parse_halfdiff(diff)?;
 
-            let filename = l[args.header.len()..].trim();
-            patch.extend_from_slice(format!("--- a/{}\n+++ b/{}\n", filename, filename).as_bytes());
-
-            acc.open_new_file(*filenames.get(filename).unwrap());
-        } else if l.starts_with(&args.hunk) {
-            acc.dump_hunk(&mut patch);
-            acc.open_new_hunk(l[args.hunk.len()..].trim());
-        } else {
-            acc.push_line(l);
-        }
-    }
-    acc.dump_hunk(&mut patch);
-
-    git.apply(std::str::from_utf8(&patch).unwrap())?;
+    git.apply(&patch)?;
     Ok(())
 }
 
@@ -264,7 +321,7 @@ impl<'a, 'b> HunkAccumulator<'a, 'b> {
         self.edited_len += 1;
     }
 
-    fn dump_hunk(&mut self, patch: &mut Vec<u8>) {
+    fn dump_hunk(&mut self, patch: &mut String) {
         if self.is_empty() {
             self.open_new_hunk("");
             return;
@@ -280,25 +337,22 @@ impl<'a, 'b> HunkAccumulator<'a, 'b> {
             return;
         }
 
-        patch.extend_from_slice(
-            format!(
-                "@@ -{},{} +{},{} @@\n",
-                original_pos,
-                original_len,
-                (original_pos as isize + self.pos_diff) as usize,
-                self.edited_len
-            )
-            .as_bytes(),
-        );
+        patch.push_str(&format!(
+            "@@ -{},{} +{},{} @@\n",
+            original_pos,
+            original_len,
+            (original_pos as isize + self.pos_diff) as usize,
+            self.edited_len
+        ));
         for l in content.lines() {
-            patch.push(b'-');
-            patch.extend_from_slice(l.as_bytes());
-            patch.push(b'\n');
+            patch.push('-');
+            patch.push_str(l);
+            patch.push('\n');
         }
         for l in self.buf.lines() {
-            patch.push(b'+');
-            patch.extend_from_slice(l.as_bytes());
-            patch.push(b'\n');
+            patch.push('+');
+            patch.push_str(l);
+            patch.push('\n');
         }
 
         self.pos_diff += self.edited_len as isize;

@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter, Read, Write};
@@ -31,37 +32,92 @@ struct Args {
     editor: Option<String>,
 }
 
-fn main() {
+struct Git;
+
+struct GrepArgs<'a> {
+    pattern: &'a str,
+    context: Option<usize>,
+    before: Option<usize>,
+    after: Option<usize>,
+}
+
+impl Git {
+    fn new() -> Result<Self> {
+        // check the availability of the git command
+        Command::new("git")
+            .args(&["--version"])
+            .output()
+            .context("\"git\" command not found.")?;
+
+        Ok(Git)
+    }
+
+    fn grep(&self, args: &GrepArgs) -> Result<String> {
+        let mut grep_args = vec![
+            "grep".to_string(),
+            "--color=never".to_string(),
+            "--line-number".to_string(),
+        ];
+        if let Some(c) = args.context {
+            grep_args.push(format!("--context={}", c));
+        }
+        if let Some(b) = args.before {
+            grep_args.push(format!("--before={}", b));
+        }
+        if let Some(a) = args.after {
+            grep_args.push(format!("--after={}", a));
+        }
+        grep_args.push(args.pattern.to_string());
+
+        // grep the pattern with git-grep
+        let output = Command::new("git")
+            .args(&grep_args)
+            .output()
+            .context("failed to get output of \"git grep\"")?;
+        let output = String::from_utf8(output.stdout)
+            .context("failed to interpret the output of \"git grep\" as a UTF-8 string")?;
+
+        Ok(output)
+    }
+
+    fn apply(&self, patch: &str) -> Result<()> {
+        let mut apply = Command::new("git")
+            .args(&["apply", "--allow-empty", "--unidiff-zero", "-"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .context("failed to run \"git apply\"")?;
+
+        // we expect it's dropped after use
+        {
+            let mut stdin = apply.stdin.take().unwrap();
+            stdin.write_all(patch.as_bytes()).unwrap();
+        }
+        let code = apply
+            .wait()
+            .context("\"git apply\" unexpectedly quitted.")?;
+        if !code.success() {
+            return Err(anyhow!("\"git apply\" returned an error{}", code));
+        }
+
+        Ok(())
+    }
+}
+
+fn main() -> Result<()> {
     let args = Args::parse();
 
-    let mut grep_args = vec![
-        "grep".to_string(),
-        "--color=never".to_string(),
-        "--line-number".to_string(),
-    ];
-    if let Some(c) = args.context {
-        grep_args.push(format!("--context={}", c));
-    }
-    if let Some(b) = args.before {
-        grep_args.push(format!("--before={}", b));
-    }
-    if let Some(a) = args.after {
-        grep_args.push(format!("--after={}", a));
-    }
-    grep_args.push(args.pattern.clone());
-
-    // grep the pattern with git-grep
-    let grep = Command::new("git").args(&grep_args).output();
-    if grep.is_err() {
-        panic!("failed to get output of \"git grep\"");
-    }
+    let git = Git::new()?;
+    let grep_output = git.grep(&GrepArgs {
+        pattern: &args.pattern,
+        context: args.context,
+        before: args.before,
+        after: args.after,
+    })?;
 
     // save original lines and compose file content to edit
     let mut filenames: HashMap<String, usize> = HashMap::new();
     let mut original: HashMap<(usize, usize), (usize, String)> = HashMap::new();
-
-    let grep_output = &grep.unwrap().stdout;
-    let grep_output = std::str::from_utf8(grep_output).unwrap();
 
     let mut prev_id = 0;
     let mut prev_pos = 0;
@@ -163,18 +219,8 @@ fn main() {
     }
     acc.dump_hunk(&mut patch);
 
-    let mut apply = Command::new("git")
-        .args(&["apply", "--allow-empty", "--unidiff-zero", "-"])
-        .stdin(Stdio::piped())
-        .spawn()
-        .unwrap();
-
-    // we expect it's dropped after use
-    {
-        let mut stdin = apply.stdin.take().unwrap();
-        stdin.write_all(&patch).unwrap();
-    }
-    apply.wait().unwrap();
+    git.apply(std::str::from_utf8(&patch).unwrap())?;
+    Ok(())
 }
 
 struct HunkAccumulator<'a, 'b> {

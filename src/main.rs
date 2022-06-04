@@ -76,9 +76,9 @@ impl Git {
         let output = Command::new("git")
             .args(&grep_args)
             .output()
-            .context("failed to get output of \"git grep\". aborting...")?;
+            .context("failed to get output of \"git grep\". aborting.")?;
         let output = String::from_utf8(output.stdout).context(
-            "failed to interpret the output of \"git grep\" as a UTF-8 string. aborting...",
+            "failed to interpret the output of \"git grep\" as a UTF-8 string. aborting.",
         )?;
 
         Ok(output)
@@ -90,7 +90,7 @@ impl Git {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
-            .context("failed to run \"git apply\". aborting...")?;
+            .context("failed to run \"git apply\". aborting.")?;
 
         // we expect it's dropped after use (it sends EOF)
         {
@@ -101,10 +101,10 @@ impl Git {
         // make sure patch was successful
         let code = apply
             .wait()
-            .context("\"git apply\" unexpectedly exited. aborting...")?;
+            .context("\"git apply\" unexpectedly exited. aborting.")?;
         if !code.success() {
             return Err(anyhow!(
-                "\"git apply\" returned an error{}. aborting...",
+                "\"git apply\" returned an error{}. aborting.",
                 code
             ));
         }
@@ -143,7 +143,7 @@ impl<'a> PatchBuilder<'a> {
         for l in raw.trim().lines() {
             let v: Vec<_> = l.splitn(3, &[':', '-'][..]).collect();
             if v.len() != 3 {
-                return Err(anyhow!("unexpected grep line: {}. aborting...", l));
+                return Err(anyhow!("unexpected grep line: {}. aborting.", l));
             }
 
             if v[0] == "" {
@@ -155,7 +155,7 @@ impl<'a> PatchBuilder<'a> {
             let filename = &v[0];
             let ln: usize = v[1]
                 .parse()
-                .with_context(|| format!("broken grep line number: {}. aborting...", &v[1]))?;
+                .with_context(|| format!("broken grep line number: {}. aborting.", &v[1]))?;
             debug_assert!(ln > 0);
 
             let next_id = self.files.len() + 1;
@@ -209,13 +209,13 @@ impl<'a> PatchBuilder<'a> {
     fn read_halfdiff(&self, src: &mut dyn Read) -> Result<String> {
         let mut buf = Vec::new();
         src.read_to_end(&mut buf)
-            .context("failed to read the edit result. aborting...")?;
+            .context("failed to read the edit result. aborting.")?;
 
         let mut patch = String::new();
         let mut acc = HunkAccumulator::new(&self.lines);
 
         let diff = std::str::from_utf8(&buf)
-            .context("failed parse the edit result as a UTF-8 string. aborting...")?;
+            .context("failed parse the edit result as a UTF-8 string. aborting.")?;
 
         for l in diff.lines() {
             if l.starts_with(&self.config.header) {
@@ -247,7 +247,7 @@ struct Editor {
 impl Editor {
     fn new(editor: &str) -> Result<Self> {
         // create tempfile first
-        let file = NamedTempFile::new().context("failed to create tempfile. aborting...")?;
+        let file = NamedTempFile::new().context("failed to create tempfile. aborting.")?;
         let name = file.path().to_str().unwrap().to_string();
 
         // break it by spaces to extract the base command
@@ -256,7 +256,7 @@ impl Editor {
         // check if it exists
         if !Self::exists(&args[0]) {
             return Err(anyhow!(
-                "failed to find the editor {:?} in the PATH. aborting...",
+                "failed to find the editor {:?} in the PATH. aborting.",
                 &args[0]
             ));
         }
@@ -302,14 +302,12 @@ impl Editor {
         let mut editor = Command::new(&self.args[0])
             .args(&self.args[1..])
             .spawn()
-            .with_context(|| {
-                format!("failed to start the editor: {}. aborting...", self.args[0])
-            })?;
+            .with_context(|| format!("failed to start the editor: {}. aborting.", self.args[0]))?;
         let output = editor
             .wait()
-            .context("editor exited unexpectedly. aborting...")?;
+            .context("editor exited unexpectedly. aborting.")?;
         if !output.success() {
-            return Err(anyhow!("editor exited and returned an error. aborting..."));
+            return Err(anyhow!("editor exited and returned an error. aborting."));
         }
 
         // make sure the tempfile exists
@@ -317,13 +315,13 @@ impl Editor {
         // which cause a missing-tempfile error. so here we check the tempfile we created still exists
         // with the same inode, by re-opening the file after the editor finished.)
         let _file = self.file.reopen().context(
-            "the tempfile is missing (the editor might have closed or changed the inode of the file). aborting...",
+            "the tempfile is missing (the editor might have closed or changed the inode of the file). aborting.",
         )?;
 
         // seek to the head before reading the content...
         self.file
             .seek(SeekFrom::Start(0))
-            .context("failed to seek the tempfile. aborting...")?;
+            .context("failed to seek the tempfile. aborting.")?;
 
         Ok(())
     }
@@ -377,7 +375,7 @@ fn main() -> Result<()> {
         gen.write_halfdiff(&mut writer)?;
         writer
             .flush()
-            .context("failed flush the tempfile. aborting...")?;
+            .context("failed flush the tempfile. aborting.")?;
     }
 
     // wait for the user...

@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use atty::Stream;
 use std::io::Write;
 use std::process::{Child, Command, Stdio};
@@ -31,6 +31,21 @@ impl Pager {
             pager: Some(child),
             drain: Box::new(stdin),
         })
+    }
+
+    pub fn wait(&mut self) -> Result<()> {
+        if self.pager.is_none() {
+            return Ok(());
+        }
+
+        let mut pager = self.pager.take().unwrap();
+        let output = pager
+            .wait()
+            .context("pager exited unexpectedly. aborting.")?;
+        if !output.success() {
+            return Err(anyhow!("pager exited and returned an error. aborting."));
+        }
+        Ok(())
     }
 }
 

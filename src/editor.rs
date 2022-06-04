@@ -61,7 +61,7 @@ impl Editor {
         &output.stdout[..3] == b"VIM".as_slice()
     }
 
-    pub fn wait_edit(&mut self) -> Result<()> {
+    pub fn wait(&mut self) -> Result<()> {
         // invoke the actual process here
         let mut editor = Command::new(&self.args[0])
             .args(&self.args[1..])

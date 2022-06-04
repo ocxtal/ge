@@ -5,7 +5,6 @@ mod patch;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::env::var;
 use std::io::{BufReader, BufWriter, Write};
 
 use crate::editor::Editor;
@@ -43,16 +42,21 @@ struct Args {
     pager: Option<String>,
 }
 
+fn arg_or_env_or_default(arg: &Option<String>, env: &str, default: &str) -> String {
+    if let Some(arg) = arg {
+        return arg.clone();
+    }
+    if let Ok(env) = std::env::var(env) {
+        return env;
+    }
+    default.to_string()
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    // create git and editor objects
+    // create git object
     let git = Git::new()?;
-    let mut editor = Editor::new(
-        args.editor
-            .as_deref()
-            .unwrap_or(var("EDITOR").as_deref().unwrap_or("vi")),
-    )?;
 
     // run git-grep collect hits
     let grep_output = git.grep(&GrepArgs {
@@ -70,30 +74,29 @@ fn main() -> Result<()> {
     let gen = PatchBuilder::from_grep(&config, &grep_output)?;
 
     // convert the git-grep result (hit locations) into "halfdiff" that will be edited by the user
-    {
-        let mut writer: Box<dyn Write> = if args.preview {
-            let pager = Pager::new(
-                args.pager
-                    .as_deref()
-                    .unwrap_or(var("PAGER").as_deref().unwrap_or("vi")),
-            )?;
-            Box::new(BufWriter::new(pager))
-        } else {
-            Box::new(BufWriter::new(&mut editor))
-        };
+    if args.preview {
+        let mut pager = Pager::new(&arg_or_env_or_default(&args.pager, "PAGER", "less"))?;
+        {
+            let mut writer = BufWriter::new(&mut pager);
+            gen.write_halfdiff(&mut writer)?;
+            writer.flush()?;
+        }
+        pager.wait()?;
 
+        return Ok(());
+    }
+
+    let mut editor = Editor::new(&arg_or_env_or_default(&args.editor, "EDITOR", "vi"))?;
+    {
+        let mut writer = BufWriter::new(&mut editor);
         gen.write_halfdiff(&mut writer)?;
         writer
             .flush()
             .context("failed to flush the tempfile. aborting.")?;
-
-        if args.preview {
-            return Ok(());
-        }
     }
 
     // wait for the user...
-    editor.wait_edit()?;
+    editor.wait()?;
 
     // read the edit result, and parse it into a unified diff
     let mut reader = BufReader::new(&mut editor);

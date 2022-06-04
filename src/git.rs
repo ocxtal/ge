@@ -1,14 +1,74 @@
 use anyhow::{anyhow, Context, Result};
+use clap::{ArgEnum, Parser};
 use std::io::Write;
 use std::process::{Command, Stdio};
 
 pub struct Git;
 
-pub struct GrepArgs<'a> {
-    pub pattern: &'a str,
-    pub context: Option<usize>,
-    pub before: Option<usize>,
-    pub after: Option<usize>,
+#[derive(Copy, Clone, Debug, ArgEnum)]
+enum GrepMode {
+    Fixed,
+    Extended,
+    Basic,
+    Pcre,
+}
+
+#[derive(Debug, Parser)]
+pub struct GrepOptions {
+    #[clap(
+        arg_enum,
+        short = 'M',
+        long = "mode",
+        default_value = "basic",
+        help = "Regex mode"
+    )]
+    mode: GrepMode,
+
+    #[clap(
+        short = 'C',
+        long,
+        name = "N",
+        help = "Include <N> additional lines before and after matches"
+    )]
+    context: Option<usize>,
+
+    #[clap(
+        short = 'B',
+        long = "before-context",
+        name = "N",
+        help = "Include <N> additional lines before matches"
+    )]
+    before: Option<usize>,
+
+    #[clap(
+        short = 'A',
+        long = "after-context",
+        name = "N",
+        help = "Include <N> additional lines after matches"
+    )]
+    after: Option<usize>,
+
+    #[clap(
+        short = 'W',
+        long = "funciton-context",
+        help = "Extend match to the entire function"
+    )]
+    function: bool,
+
+    #[clap(short = 'v', long = "invert-match", help = "Invert matches")]
+    invert: bool,
+
+    #[clap(short = 'i', long = "ignore-case", help = "Case-insensitive search")]
+    ignore_case: bool,
+
+    #[clap(short = 'w', long = "word-regexp", help = "Match at word boundaries")]
+    word_boundary: bool,
+
+    #[clap(
+        long = "max-depth",
+        help = "Maximum directory depth to search [default: inf]"
+    )]
+    max_depth: Option<usize>,
 }
 
 impl Git {
@@ -23,27 +83,52 @@ impl Git {
         Ok(Git)
     }
 
-    pub fn grep(&self, args: &GrepArgs) -> Result<String> {
+    fn expand_options(&self, opts: &GrepOptions, args: &mut Vec<String>) {
+        args.push(match opts.mode {
+            GrepMode::Fixed => "--fixed-strings".to_string(),
+            GrepMode::Basic => "--basic-regexp".to_string(),
+            GrepMode::Extended => "--extended-regexp".to_string(),
+            GrepMode::Pcre => "--perl-regexp".to_string(),
+        });
+
+        if let Some(c) = opts.context {
+            args.push(format!("--context={}", c));
+        }
+        if let Some(b) = opts.before {
+            args.push(format!("--before={}", b));
+        }
+        if let Some(a) = opts.after {
+            args.push(format!("--after={}", a));
+        }
+        if opts.function {
+            args.push("--function-context".to_string());
+        }
+        if opts.invert {
+            args.push("--invert-match".to_string());
+        }
+        if opts.ignore_case {
+            args.push("--ignore-case".to_string());
+        }
+        if opts.word_boundary {
+            args.push("--word-regexp".to_string());
+        }
+    }
+
+    pub fn grep(&self, pattern: &str, opts: &GrepOptions) -> Result<String> {
         // compose arguments
-        let mut grep_args = vec![
+        let mut args = vec![
             "grep".to_string(),
             "--color=never".to_string(),
             "--line-number".to_string(),
+            "-I".to_string(), // exclude binary files
         ];
-        if let Some(c) = args.context {
-            grep_args.push(format!("--context={}", c));
-        }
-        if let Some(b) = args.before {
-            grep_args.push(format!("--before={}", b));
-        }
-        if let Some(a) = args.after {
-            grep_args.push(format!("--after={}", a));
-        }
-        grep_args.push(args.pattern.to_string());
+
+        self.expand_options(opts, &mut args);
+        args.push(pattern.to_string());
 
         // run git-grep then parse the output as a utf-8 string
         let output = Command::new("git")
-            .args(&grep_args)
+            .args(&args)
             .output()
             .context("failed to get output of \"git grep\". aborting.")?;
         let output = String::from_utf8(output.stdout).context(

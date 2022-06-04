@@ -8,39 +8,18 @@ use clap::Parser;
 use std::io::{BufReader, BufWriter, Write};
 
 use crate::editor::Editor;
-use crate::git::{Git, GrepArgs};
+use crate::git::{Git, GrepOptions};
 use crate::pager::Pager;
 use crate::patch::{HalfDiffConfig, PatchBuilder};
 
-#[derive(Parser, Debug)]
-#[clap(author, version = "0.0.1", about = "grep and edit your files in bulk", long_about = None)]
+#[derive(Debug, Parser)]
+#[clap(author, version = "0.0.1", about = "grep and edit git-tracked files in bulk", long_about = None)]
 struct Args {
     #[clap(help = "Pattern to search")]
     pattern: String,
 
-    #[clap(
-        short = 'C',
-        long,
-        name = "N",
-        help = "Show <N> lines before and after matches"
-    )]
-    context: Option<usize>,
-
-    #[clap(
-        short = 'B',
-        long = "before-context",
-        name = "N",
-        help = "Show <N> lines before matches"
-    )]
-    before: Option<usize>,
-
-    #[clap(
-        short = 'A',
-        long = "after-context",
-        name = "N",
-        help = "Show <N> lines after matches"
-    )]
-    after: Option<usize>,
+    #[clap(flatten)]
+    grep_opts: GrepOptions,
 
     #[clap(short, long, help = "Show matches and exit")]
     preview: bool,
@@ -71,16 +50,9 @@ fn arg_or_env_or_default(arg: &Option<String>, env: &str, default: &str) -> Stri
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    // create git object
+    // create git object, run git-grep to collect matches
     let git = Git::new()?;
-
-    // run git-grep collect hits
-    let grep_output = git.grep(&GrepArgs {
-        pattern: &args.pattern,
-        context: args.context,
-        before: args.before,
-        after: args.after,
-    })?;
+    let grep_output = git.grep(&args.pattern, &args.grep_opts)?;
 
     // parse the result
     let config = &HalfDiffConfig {

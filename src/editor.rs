@@ -20,7 +20,7 @@ impl Editor {
         // check if it exists
         if !Self::exists(&args[0]) {
             return Err(anyhow!(
-                "failed to find the editor {:?} in the PATH. aborting.",
+                "failed to find editor {:?} in the PATH. aborting.",
                 &args[0]
             ));
         }
@@ -66,7 +66,7 @@ impl Editor {
         let mut editor = Command::new(&self.args[0])
             .args(&self.args[1..])
             .spawn()
-            .with_context(|| format!("failed to start the editor {:?}. aborting.", self.args[0]))?;
+            .with_context(|| format!("failed to start editor {:?}. aborting.", self.args[0]))?;
         let output = editor
             .wait()
             .context("editor exited unexpectedly. aborting.")?;

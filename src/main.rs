@@ -77,9 +77,9 @@ fn main() -> Result<()> {
     if args.preview {
         let mut pager = Pager::new(&arg_or_env_or_default(&args.pager, "PAGER", "less"))?;
         {
-            let mut writer = BufWriter::new(&mut pager);
-            gen.write_halfdiff(&mut writer)?;
-            writer.flush()?;
+            // let mut writer = BufWriter::new(&mut pager);
+            gen.write_halfdiff(&mut pager)?;
+            // writer.flush()?;
         }
         pager.wait()?;
 

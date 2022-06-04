@@ -33,17 +33,24 @@ impl Pager {
         })
     }
 
-    pub fn wait(&mut self) -> Result<()> {
-        if self.pager.is_none() {
-            return Ok(());
+    pub fn wait(mut self) -> Result<()> {
+        // this function consumes `self`
+
+        // drop stdin to send EOF
+        {
+            let mut drain = self.drain;
+            drain.flush()?;
         }
 
-        let mut pager = self.pager.take().unwrap();
-        let output = pager
-            .wait()
-            .context("pager exited unexpectedly. aborting.")?;
-        if !output.success() {
-            return Err(anyhow!("pager exited and returned an error. aborting."));
+        // wait for the process to exit
+        if let Some(ref mut pager) = self.pager {
+            let output = pager
+                .wait()
+                .context("pager exited unexpectedly. aborting.")?;
+
+            if !output.success() {
+                return Err(anyhow!("pager exited and returned an error. aborting."));
+            }
         }
         Ok(())
     }

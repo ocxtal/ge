@@ -250,11 +250,51 @@ impl Editor {
         let file = NamedTempFile::new().context("failed to create tempfile. aborting...")?;
         let name = file.path().to_str().unwrap().to_string();
 
-        // compose arguments
+        // break it by spaces to extract the base command
         let mut args: Vec<_> = editor.split_whitespace().map(|x| x.to_string()).collect();
+
+        // check if it exists
+        if !Self::exists(&args[0]) {
+            return Err(anyhow!(
+                "failed to find the editor {:?} in the PATH. aborting...",
+                &args[0]
+            ));
+        }
+
+        // if it's a vim, disable inode swapping
+        if Self::is_a_vim(&args[0]) {
+            args.push("-c".to_string());
+            args.push(":set backupcopy=yes".to_string());
+        }
+
+        // add the target file
         args.push(name);
 
         Ok(Editor { args, file })
+    }
+
+    fn exists(editor: &str) -> bool {
+        let output = Command::new("which").args(&[editor]).output();
+        if output.is_err() {
+            return false;
+        }
+
+        output.unwrap().status.success()
+    }
+
+    fn is_a_vim(editor: &str) -> bool {
+        let output = Command::new(editor).args(&["--version"]).output();
+        if output.is_err() {
+            return false;
+        }
+
+        let output = output.unwrap();
+        if !output.status.success() {
+            // it doesn't support "--version" flag. apparently not a vim
+            return false;
+        }
+
+        &output.stdout[..3] == b"VIM".as_slice()
     }
 
     fn wait_edit(&mut self) -> Result<()> {

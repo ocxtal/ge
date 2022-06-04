@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use std::collections::HashMap;
 use std::env::var;
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::process::{Command, Stdio};
 use tempfile::NamedTempFile;
 
@@ -216,6 +216,7 @@ impl<'a> PatchBuilder<'a> {
 
         let diff = std::str::from_utf8(&buf)
             .context("failed parse the edit result as a UTF-8 string. aborting...")?;
+
         for l in diff.lines() {
             if l.starts_with(&self.config.header) {
                 acc.dump_hunk(&mut patch);
@@ -278,6 +279,11 @@ impl Editor {
         let _file = self.file.reopen().context(
             "the tempfile is missing (the editor might have closed or changed the inode of the file). aborting...",
         )?;
+
+        // seek to the head before reading the content...
+        self.file
+            .seek(SeekFrom::Start(0))
+            .context("failed to seek the tempfile. aborting...")?;
 
         Ok(())
     }

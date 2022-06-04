@@ -13,32 +13,48 @@ use crate::pager::Pager;
 use crate::patch::{HalfDiffConfig, PatchBuilder};
 
 #[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author, version = "0.0.1", about = "grep and edit your files in bulk", long_about = None)]
 struct Args {
+    #[clap(help = "Pattern to search")]
     pattern: String,
 
-    #[clap(short = 'C', long)]
+    #[clap(
+        short = 'C',
+        long,
+        name = "N",
+        help = "Show <N> lines before and after matches"
+    )]
     context: Option<usize>,
 
-    #[clap(short = 'B', long)]
+    #[clap(
+        short = 'B',
+        long = "before-context",
+        name = "N",
+        help = "Show <N> lines before matches"
+    )]
     before: Option<usize>,
 
-    #[clap(short = 'A', long)]
+    #[clap(
+        short = 'A',
+        long = "after-context",
+        name = "N",
+        help = "Show <N> lines after matches"
+    )]
     after: Option<usize>,
 
-    #[clap(short, long)]
+    #[clap(short, long, help = "Show matches and exit")]
     preview: bool,
 
-    #[clap(long, default_value = "+++")]
+    #[clap(long, default_value = "+++", help = "Use <HEADER> for header markers")]
     header: String,
 
-    #[clap(long, default_value = "@@")]
+    #[clap(long, default_value = "@@", help = "Use <HUNK> for hunk markers")]
     hunk: String,
 
-    #[clap(short, long)]
+    #[clap(short, long, help = "Use <EDITOR> to edit matches [default: vi]")]
     editor: Option<String>,
 
-    #[clap(long)]
+    #[clap(long, help = "Use <PAGER> to preview matches [default: less]")]
     pager: Option<String>,
 }
 

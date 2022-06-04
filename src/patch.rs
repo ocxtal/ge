@@ -194,7 +194,12 @@ impl<'a> PatchBuilder<'a> {
                 let filename = l[self.config.header.len()..].trim();
                 patch.push_str(&format!("--- a/{}\n+++ b/{}\n", filename, filename));
 
-                let filename = self.files.get(filename).unwrap();
+                let filename = self.files.get(filename).with_context(|| {
+                    format!(
+                        "got an invalid filename {:?} in the edit result. aborting.",
+                        filename
+                    )
+                })?;
                 acc.open_new_file(*filename);
             } else if l.starts_with(&self.config.hunk) {
                 acc.dump_hunk(&mut patch);

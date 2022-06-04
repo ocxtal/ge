@@ -1,5 +1,6 @@
 mod editor;
 mod git;
+mod pager;
 mod patch;
 
 use anyhow::{Context, Result};
@@ -9,6 +10,7 @@ use std::io::{BufReader, BufWriter, Write};
 
 use crate::editor::Editor;
 use crate::git::{Git, GrepArgs};
+use crate::pager::Pager;
 use crate::patch::{HalfDiffConfig, PatchBuilder};
 
 #[derive(Parser, Debug)]
@@ -36,6 +38,9 @@ struct Args {
 
     #[clap(short, long)]
     editor: Option<String>,
+
+    #[clap(long)]
+    pager: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -66,11 +71,25 @@ fn main() -> Result<()> {
 
     // convert the git-grep result (hit locations) into "halfdiff" that will be edited by the user
     {
-        let mut writer = BufWriter::new(&mut editor);
+        let mut writer: Box<dyn Write> = if args.preview {
+            let pager = Pager::new(
+                args.pager
+                    .as_deref()
+                    .unwrap_or(var("PAGER").as_deref().unwrap_or("vi")),
+            )?;
+            Box::new(BufWriter::new(pager))
+        } else {
+            Box::new(BufWriter::new(&mut editor))
+        };
+
         gen.write_halfdiff(&mut writer)?;
         writer
             .flush()
-            .context("failed flush the tempfile. aborting.")?;
+            .context("failed to flush the tempfile. aborting.")?;
+
+        if args.preview {
+            return Ok(());
+        }
     }
 
     // wait for the user...

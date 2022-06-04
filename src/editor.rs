@@ -66,7 +66,7 @@ impl Editor {
         let mut editor = Command::new(&self.args[0])
             .args(&self.args[1..])
             .spawn()
-            .with_context(|| format!("failed to start the editor: {}. aborting.", self.args[0]))?;
+            .with_context(|| format!("failed to start the editor {:?}. aborting.", self.args[0]))?;
         let output = editor
             .wait()
             .context("editor exited unexpectedly. aborting.")?;

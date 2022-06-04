@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use std::collections::HashMap;
+use std::env::var;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::process::{Command, Stdio};
 use tempfile::NamedTempFile;
@@ -54,6 +55,7 @@ impl Git {
     }
 
     fn grep(&self, args: &GrepArgs) -> Result<String> {
+        // compose arguments
         let mut grep_args = vec![
             "grep".to_string(),
             "--color=never".to_string(),
@@ -70,13 +72,14 @@ impl Git {
         }
         grep_args.push(args.pattern.to_string());
 
-        // grep the pattern with git-grep
+        // run git-grep then parse the output as a utf-8 string
         let output = Command::new("git")
             .args(&grep_args)
             .output()
-            .context("failed to get output of \"git grep\"")?;
-        let output = String::from_utf8(output.stdout)
-            .context("failed to interpret the output of \"git grep\" as a UTF-8 string")?;
+            .context("failed to get output of \"git grep\". aborting...")?;
+        let output = String::from_utf8(output.stdout).context(
+            "failed to interpret the output of \"git grep\" as a UTF-8 string. aborting...",
+        )?;
 
         Ok(output)
     }
@@ -87,37 +90,42 @@ impl Git {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
-            .context("failed to run \"git apply\"")?;
+            .context("failed to run \"git apply\". aborting...")?;
 
-        // we expect it's dropped after use
+        // we expect it's dropped after use (it sends EOF)
         {
             let mut stdin = apply.stdin.take().unwrap();
             stdin.write_all(patch.as_bytes()).unwrap();
         }
+
+        // make sure patch was successful
         let code = apply
             .wait()
-            .context("\"git apply\" unexpectedly quitted.")?;
+            .context("\"git apply\" unexpectedly exited. aborting...")?;
         if !code.success() {
-            return Err(anyhow!("\"git apply\" returned an error{}", code));
+            return Err(anyhow!(
+                "\"git apply\" returned an error{}. aborting...",
+                code
+            ));
         }
 
         Ok(())
     }
 }
 
-struct EditConfig<'a> {
+struct HalfDiffConfig<'a> {
     header: &'a str,
     hunk: &'a str,
 }
 
 struct PatchBuilder<'a> {
-    config: &'a EditConfig<'a>,
+    config: &'a HalfDiffConfig<'a>,
     files: HashMap<String, usize>,
     lines: HashMap<(usize, usize), (usize, String)>,
 }
 
 impl<'a> PatchBuilder<'a> {
-    fn from_grep(config: &'a EditConfig, raw: &str) -> Result<Self> {
+    fn from_grep(config: &'a HalfDiffConfig, raw: &str) -> Result<Self> {
         let mut locs = PatchBuilder {
             config,
             files: HashMap::new(),
@@ -135,7 +143,7 @@ impl<'a> PatchBuilder<'a> {
         for l in raw.trim().lines() {
             let v: Vec<_> = l.splitn(3, &[':', '-'][..]).collect();
             if v.len() != 3 {
-                return Err(anyhow!("unexpected grep line: {}", l));
+                return Err(anyhow!("unexpected grep line: {}. aborting...", l));
             }
 
             if v[0] == "" {
@@ -147,7 +155,7 @@ impl<'a> PatchBuilder<'a> {
             let filename = &v[0];
             let ln: usize = v[1]
                 .parse()
-                .with_context(|| format!("broken grep line number: {}", &v[1]))?;
+                .with_context(|| format!("broken grep line number: {}. aborting...", &v[1]))?;
             debug_assert!(ln > 0);
 
             let next_id = self.files.len() + 1;
@@ -173,7 +181,7 @@ impl<'a> PatchBuilder<'a> {
         Ok(())
     }
 
-    fn format_halfdiff(&self, drain: &mut dyn Write) -> Result<()> {
+    fn write_halfdiff(&self, drain: &mut dyn Write) -> Result<()> {
         // index files
         let index: HashMap<usize, &str> = self.files.iter().map(|x| (*x.1, x.0.as_str())).collect();
 
@@ -198,10 +206,16 @@ impl<'a> PatchBuilder<'a> {
         Ok(())
     }
 
-    fn parse_halfdiff(&self, diff: &str) -> Result<String> {
+    fn read_halfdiff(&self, src: &mut dyn Read) -> Result<String> {
+        let mut buf = Vec::new();
+        src.read_to_end(&mut buf)
+            .context("failed to read the edit result. aborting...")?;
+
         let mut patch = String::new();
         let mut acc = HunkAccumulator::new(&self.lines);
 
+        let diff = std::str::from_utf8(&buf)
+            .context("failed parse the edit result as a UTF-8 string. aborting...")?;
         for l in diff.lines() {
             if l.starts_with(&self.config.header) {
                 acc.dump_hunk(&mut patch);
@@ -224,10 +238,79 @@ impl<'a> PatchBuilder<'a> {
     }
 }
 
+struct Editor {
+    args: Vec<String>,
+    file: NamedTempFile,
+}
+
+impl Editor {
+    fn new(editor: &str) -> Result<Self> {
+        // create tempfile first
+        let file = NamedTempFile::new().context("failed to create tempfile. aborting...")?;
+        let name = file.path().to_str().unwrap().to_string();
+
+        // compose arguments
+        let mut args: Vec<_> = editor.split_whitespace().map(|x| x.to_string()).collect();
+        args.push(name);
+
+        Ok(Editor { args, file })
+    }
+
+    fn wait_edit(&mut self) -> Result<()> {
+        // invoke the actual process here
+        let mut editor = Command::new(&self.args[0])
+            .args(&self.args[1..])
+            .spawn()
+            .with_context(|| {
+                format!("failed to start the editor: {}. aborting...", self.args[0])
+            })?;
+        let output = editor
+            .wait()
+            .context("editor exited unexpectedly. aborting...")?;
+        if !output.success() {
+            return Err(anyhow!("editor exited and returned an error. aborting..."));
+        }
+
+        // make sure the tempfile exists
+        // (vim and some other editors creates another working file and rename it to the original on quit,
+        // which cause a missing-tempfile error. so here we check the tempfile we created still exists
+        // with the same inode, by re-opening the file after the editor finished.)
+        let _file = self.file.reopen().context(
+            "the tempfile is missing (the editor might have closed or changed the inode of the file). aborting...",
+        )?;
+
+        Ok(())
+    }
+}
+
+impl Read for Editor {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.file.read(buf)
+    }
+}
+
+impl Write for Editor {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.file.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.file.flush()
+    }
+}
+
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    // create git and editor objects
     let git = Git::new()?;
+    let mut editor = Editor::new(
+        args.editor
+            .as_deref()
+            .unwrap_or(var("EDITOR").as_deref().unwrap_or("vi")),
+    )?;
+
+    // run git-grep collect hits
     let grep_output = git.grep(&GrepArgs {
         pattern: &args.pattern,
         context: args.context,
@@ -235,48 +318,33 @@ fn main() -> Result<()> {
         after: args.after,
     })?;
 
-    let config = &EditConfig {
+    // parse the result
+    let config = &HalfDiffConfig {
         header: &args.header,
         hunk: &args.hunk,
     };
     let gen = PatchBuilder::from_grep(&config, &grep_output)?;
 
-    let tmp = NamedTempFile::new().context("failed to create tempfile")?;
-    let mut tmp = BufWriter::new(tmp);
+    // convert the git-grep result (hit locations) into "halfdiff" that will be edited by the user
+    {
+        let mut writer = BufWriter::new(&mut editor);
+        gen.write_halfdiff(&mut writer)?;
+        writer
+            .flush()
+            .context("failed flush the tempfile. aborting...")?;
+    }
 
-    gen.format_halfdiff(&mut tmp)?;
-    tmp.flush().context("failed flush the tempfile")?;
+    // wait for the user...
+    editor.wait_edit()?;
 
-    // edit!
-    let tmp = tmp.into_inner().unwrap();
-    let name = tmp.path().to_str().unwrap().to_string();
+    // read the edit result, and parse it into a unified diff
+    let mut reader = BufReader::new(&mut editor);
+    let patch = gen.read_halfdiff(&mut reader)?;
 
-    let editor = if let Some(editor) = args.editor {
-        editor
-    } else {
-        std::env::var("EDITOR").unwrap_or("vi".to_string())
-    };
-    let mut editor: Vec<_> = editor.split_whitespace().collect();
-    editor.push(&name);
-
-    let mut editor = Command::new(editor[0]).args(&editor[1..]).spawn().unwrap();
-    editor.wait().unwrap();
-
-    // reload the content
-    let tmp = tmp.reopen().context(
-        "the tempfile is missing (the editor might have closed or changed the inode of the file)",
-    )?;
-    let mut tmp = BufReader::new(tmp);
-    let mut diff = Vec::new();
-    tmp.read_to_end(&mut diff)
-        .context("failed to read the edit result")?;
-
-    // parse
-    let diff = std::str::from_utf8(&diff)
-        .context("failed to interpret the edit result as a UTF-8 string")?;
-    let patch = gen.parse_halfdiff(diff)?;
-
+    // then apply the patch
     git.apply(&patch)?;
+
+    // we've done all
     Ok(())
 }
 

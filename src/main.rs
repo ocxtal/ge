@@ -17,13 +17,13 @@ use crate::patch::{HalfDiffConfig, PatchBuilder};
 struct Args {
     pattern: String,
 
-    #[clap(short, long)]
+    #[clap(short = 'C', long)]
     context: Option<usize>,
 
-    #[clap(short, long)]
+    #[clap(short = 'B', long)]
     before: Option<usize>,
 
-    #[clap(short, long)]
+    #[clap(short = 'A', long)]
     after: Option<usize>,
 
     #[clap(short, long)]

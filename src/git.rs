@@ -35,16 +35,16 @@ pub struct GrepOptions {
     #[clap(
         short = 'B',
         long = "before-context",
-        name = "N",
-        help = "Include <N> additional lines before matches"
+        name = "B",
+        help = "Include <B> additional lines before matches"
     )]
     before: Option<usize>,
 
     #[clap(
         short = 'A',
         long = "after-context",
-        name = "N",
-        help = "Include <N> additional lines after matches"
+        name = "A",
+        help = "Include <A> additional lines after matches"
     )]
     after: Option<usize>,
 
@@ -95,10 +95,10 @@ impl Git {
             args.push(format!("--context={}", c));
         }
         if let Some(b) = opts.before {
-            args.push(format!("--before={}", b));
+            args.push(format!("--before-context={}", b));
         }
         if let Some(a) = opts.after {
-            args.push(format!("--after={}", a));
+            args.push(format!("--after-context={}", a));
         }
         if opts.function {
             args.push("--function-context".to_string());

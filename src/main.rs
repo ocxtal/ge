@@ -91,7 +91,9 @@ fn main() -> Result<()> {
     let patch = gen.read_halfdiff(&mut reader)?;
 
     // then apply the patch
-    git.apply(&patch)?;
+    if patch.len() > 0 {
+        git.apply(&patch)?;
+    }
 
     // we've done all
     Ok(())

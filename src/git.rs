@@ -140,7 +140,7 @@ impl Git {
 
     pub fn apply(&self, patch: &str) -> Result<()> {
         let mut apply = Command::new("git")
-            .args(&["apply", "--allow-empty", "--unidiff-zero", "-"])
+            .args(&["apply", "--unidiff-zero", "-"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()

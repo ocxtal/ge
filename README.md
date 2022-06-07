@@ -46,33 +46,36 @@ And five basic options:
 * `--preview` only dumps half diffs if specified.
 * `--pager=PAGER` overrides the drain for the `--preview` mode. The default is `less`.
 
-The other options are passed through to the backend **git grep**:
-
-* `--mode=MODE` changes the dialect of the regular expression.
-  * Possible ones are `basic` (default), `extended`, `pcre`, and `fixed`.
-  * They map to `--basic-regexp`, `--extended-regexp`, `--perl-regexp`, and `--fixed-strings` options of git grep, respectively.
-* `--word-regexp`              Match at word boundaries
-* `--invert-match`             Invert matches
-* `--ignore-case`              Case-insensitive search
-* `--after-context=<A>`        Include A additional lines after matches
-* `--before-context=<B>`       Include B additional lines before matches
-* `--context=<N>`              Include N additional lines before and after matches
-* `--funciton-context`         Extend match to the entire function
-* `--max-depth=<MAX_DEPTH>`    Maximum directory depth to search [default: inf]
+The other options are passed through to the backend **git grep**. See `ge --help` for the details.
 
 ## "Half diffs" explained
 
+Half diff is a unified diff format with only the target lines. The original lines are cached inside ge during editing and don't appear in the file edited by the user. A typical half diff looks like this:
+
+```
++++ src/editor.rs
+@@ 95,1
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+@@ 101,1
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
++++ src/git.rs
+@@ 33,1
+    context: Option<usize>,
+@@ 41,1
+    before: Option<usize>,
+@@ 49,1
+    after: Option<usize>,
+@@ 71,1
+    max_depth: Option<usize>,
+```
+
+* The `+++` starting at the head of a line is a "header marker", followed by a space and a filename without escaping. It indicates the series of hunks below the header is from the file.
+* The `@@` starting at the head of a line is a "hunk marker", followed by a location the hunk took place in the `linenumber,linecount` format. The series of lines below the hunk marker constitutes one grep hit context.
+* No line marker, `+` nor `-`, is appended at the head of each line as we don't need to distinguish the original and target lines.
+  * Half diffs contain only the target lines.
+  * If the target lines contain a string that collides with the header or hunk marker, please use the `--header` or `--hunk` option to change the markers.
 
 ## Installation
-
-### Prebuilt binaries
-
-* macOS (aarch64, x86\_64)
-* Linux (aarch64, x86\_64)
-
-
-
-### From source
 
 ```bash
 git clone https://github.com/ocxtal/ge.git
@@ -83,9 +86,9 @@ cargo build --release
 
 
 
-## Limitations
+## Notes
 
-* It doesn't support editing files not tracked by git. It's my design decision to use git as a safety equipment to prevent irrepairable destruction.
+* It doesn't support editing files not tracked by git. It's my design decision to use git as safety equipment to prevent irreparable destruction.
 * Not tested on Windows. I don't think it works as it depends on possibly-unix-only features.
 
 ## Copyright and license

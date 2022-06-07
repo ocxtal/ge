@@ -4,9 +4,9 @@
 **ge** is a tool to edit grep match locations all at once in a single editor pane. It does the following four steps when invoked:
 
 * queries the input word (can be in a regular expression) with **git grep**
-* composes **"half diffs"**
-* **launches an editor** for users to edit the half diffs, and then waits for the user
-* converts the edited half diffs to regular unified diffs, and feeds them to **git apply**
+* composes a **"half diff"**
+* **launches an editor** for users to edit the half diff, and then waits for the user
+* converts the edited half diff to a regular unified diff, and feeds it to **git apply**
 
 ![example](./figs/example.png)
 
@@ -24,19 +24,19 @@ You can use any editor that can be launched from the terminal.
   * `--reuse-window` is recommended if you are in a terminal in VSCode, as it prevents the `code` from opening another window.
 * **Sublime Text**: `--editor="rsubl --wait"`
   * Needs the **[Remote Subl](https://github.com/randy3k/RemoteSubl)** plugin installed.
-  * Needs the `--wait` option for the `code` to wait for the user.
+  * Needs the `--wait` option for the `rsubl` to wait for the user.
 
 ge recognizes the environment variable `EDITOR` as well. Note that the `--editor` option takes precedence over the environment variable.
 
 ## Arguments and options
 
 ```bash
-ge [OPTIONS] <PATTERN>
+ge [OPTIONS] PATTERN
 ```
 
 It has one mandatory positional argument:
 
-* `<PATTERN>` to search with **git grep**. Can be a regular expression (See the `--mode` option for the details).
+* `PATTERN` to search with **git grep**. Can be a regular expression (See the `--mode` option for the details).
 
 And five basic options:
 

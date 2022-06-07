@@ -77,11 +77,13 @@ Half diff is a unified diff format with only the target lines. The original line
 
 ## Installation
 
+[Rust toolchain](https://rustup.rs/) is required.
+
 ```bash
 git clone https://github.com/ocxtal/ge.git
 cd ge
 cargo build --release
-# `ge` is built in `./target/release`
+# `ge` is built in `./target/release`. copy it anywhere you want.
 ```
 
 

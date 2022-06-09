@@ -220,7 +220,7 @@ impl PatchBuilder {
         let mut prev_pos = 0;
         let mut prev_base_pos = 0;
         for l in raw.trim().lines() {
-            let v: Vec<_> = l.splitn(3, &[':', '-'][..]).collect();
+            let v: Vec<_> = l.splitn(3, &[':', '-', '='][..]).collect();
             if v.len() != 3 {
                 return Err(anyhow!("unexpected grep line: {}. aborting.", l));
             }

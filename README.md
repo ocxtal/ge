@@ -43,6 +43,7 @@ And five basic options:
 * `--editor=EDITOR` overrides the editor to use. The default is `vi`.
 * `--header=HEADER` overrides the marker string for headers in half diffs. The default is `+++`.
 * `--hunk=HUNK` overrides the marker string for hunks in half diffs. The default is `@@`.
+  * The marker(s) will be lengthened if it collides with the lines.
 * `--preview` only dumps half diffs if specified.
 * `--pager=PAGER` overrides the drain for the `--preview` mode. The default is `less`.
 

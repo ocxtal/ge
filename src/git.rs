@@ -71,9 +71,16 @@ pub struct GrepOptions {
     max_depth: Option<usize>,
 
     #[clap(
+        short = 'y',
+        long,
+        help = "Files to search (in pathspec; multiple allowed)"
+    )]
+    only: Vec<String>,
+
+    #[clap(
         short = 'x',
         long,
-        help = "File patterns to exclude in search (in pathspec; multiple allowed)"
+        help = "Files to exclude in search (in pathspec; multiple allowed)"
     )]
     exclude: Vec<String>,
 }
@@ -133,9 +140,24 @@ impl Git {
         self.expand_options(opts, &mut args);
         args.push(pattern.to_string());
 
+        if !opts.only.is_empty() || !opts.exclude.is_empty() {
+            args.push("--".to_string());
+        }
+
+        // append pathspec if "--only" exists
+        if !opts.only.is_empty() {
+            let only = opts
+                .only
+                .iter()
+                .map(|x| x.split(',').collect::<Vec<_>>())
+                .flatten();
+            for pattern in only {
+                args.push(pattern.to_string());
+            }
+        }
+
         // append pathspec if "--exclude" exists
         if !opts.exclude.is_empty() {
-            args.push("--".to_string());
             let exclude = opts
                 .exclude
                 .iter()

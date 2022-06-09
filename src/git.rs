@@ -70,7 +70,11 @@ pub struct GrepOptions {
     )]
     max_depth: Option<usize>,
 
-    #[clap(short = 'x', long, help = "File patterns to exclude in search")]
+    #[clap(
+        short = 'x',
+        long,
+        help = "File patterns to exclude in search (in pathspec; multiple allowed)"
+    )]
     exclude: Vec<String>,
 }
 

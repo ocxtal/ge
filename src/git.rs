@@ -69,6 +69,9 @@ pub struct GrepOptions {
         help = "Maximum directory depth to search [default: inf]"
     )]
     max_depth: Option<usize>,
+
+    #[clap(short = 'x', long, help = "File patterns to exclude in search")]
+    exclude: Vec<String>,
 }
 
 impl Git {
@@ -125,6 +128,19 @@ impl Git {
 
         self.expand_options(opts, &mut args);
         args.push(pattern.to_string());
+
+        // append pathspec if "--exclude" exists
+        if !opts.exclude.is_empty() {
+            args.push("--".to_string());
+            let exclude = opts
+                .exclude
+                .iter()
+                .map(|x| x.split(',').collect::<Vec<_>>())
+                .flatten();
+            for pattern in exclude {
+                args.push(format!(":!{}", pattern));
+            }
+        }
 
         // run git-grep then parse the output as a utf-8 string
         let output = Command::new("git")

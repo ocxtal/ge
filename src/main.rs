@@ -33,7 +33,7 @@ struct Args {
     #[clap(short, long, help = "Use <EDITOR> to edit matches [default: vi]")]
     editor: Option<String>,
 
-    #[clap(long, help = "Use <PAGER> to preview matches [default: less]")]
+    #[clap(long, help = "Use <PAGER> to preview matches [default: less -F]")]
     pager: Option<String>,
 }
 

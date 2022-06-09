@@ -149,8 +149,7 @@ impl Git {
             let only = opts
                 .only
                 .iter()
-                .map(|x| x.split(',').collect::<Vec<_>>())
-                .flatten();
+                .flat_map(|x| x.split(',').collect::<Vec<_>>());
             for pattern in only {
                 args.push(pattern.to_string());
             }
@@ -161,8 +160,7 @@ impl Git {
             let exclude = opts
                 .exclude
                 .iter()
-                .map(|x| x.split(',').collect::<Vec<_>>())
-                .flatten();
+                .flat_map(|x| x.split(',').collect::<Vec<_>>());
             for pattern in exclude {
                 args.push(format!(":!{}", pattern));
             }

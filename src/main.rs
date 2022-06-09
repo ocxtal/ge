@@ -24,11 +24,11 @@ struct Args {
     #[clap(short, long, help = "Show matches and exit")]
     preview: bool,
 
-    #[clap(long, default_value = "+++", help = "Use <HEADER> for header markers")]
-    header: String,
+    #[clap(long, help = "Use <HEADER> for header markers [default: +++]")]
+    header: Option<String>,
 
-    #[clap(long, default_value = "@@", help = "Use <HUNK> for hunk markers")]
-    hunk: String,
+    #[clap(long, help = "Use <HUNK> for hunk markers [default: @@]")]
+    hunk: Option<String>,
 
     #[clap(short, long, help = "Use <EDITOR> to edit matches [default: vi]")]
     editor: Option<String>,
@@ -56,8 +56,8 @@ fn main() -> Result<()> {
 
     // parse the result
     let config = &HalfDiffConfig {
-        header: &args.header,
-        hunk: &args.hunk,
+        header: args.header.as_deref(),
+        hunk: args.hunk.as_deref(),
     };
     let gen = PatchBuilder::from_grep(&config, &grep_output)?;
 

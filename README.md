@@ -45,7 +45,7 @@ And five basic options:
 * `--hunk=HUNK` overrides the marker string for hunks in half diffs. The default is `@@`.
   * The marker(s) will be lengthened if it collides with the lines.
 * `--preview` only dumps half diffs if specified.
-* `--pager=PAGER` overrides the drain for the `--preview` mode. The default is `less`.
+* `--pager=PAGER` overrides the drain for the `--preview` mode. The default is `less -F`.
 
 The other options are passed through to the backend **git grep**. See `ge --help` for the details.
 

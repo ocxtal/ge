@@ -63,7 +63,7 @@ fn main() -> Result<()> {
 
     // convert the git-grep result (hit locations) into "halfdiff" that will be edited by the user
     if args.preview {
-        let mut pager = Pager::new(&arg_or_env_or_default(&args.pager, "PAGER", "less"))?;
+        let mut pager = Pager::new(&arg_or_env_or_default(&args.pager, "PAGER", "less -F"))?;
         {
             let mut writer = BufWriter::new(&mut pager);
             gen.write_halfdiff(&mut writer)?;

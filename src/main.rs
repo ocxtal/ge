@@ -59,7 +59,7 @@ fn main() -> Result<()> {
         header: args.header.as_deref(),
         hunk: args.hunk.as_deref(),
     };
-    let gen = PatchBuilder::from_grep(&config, &grep_output)?;
+    let gen = PatchBuilder::from_grep(config, &grep_output)?;
 
     // convert the git-grep result (hit locations) into "halfdiff" that will be edited by the user
     if args.preview {
@@ -91,7 +91,7 @@ fn main() -> Result<()> {
     let patch = gen.read_halfdiff(&mut reader)?;
 
     // then apply the patch
-    if patch.len() > 0 {
+    if !patch.is_empty() {
         git.apply(&patch)?;
     }
 

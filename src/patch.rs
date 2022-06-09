@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
+use std::fmt::Write as FmtWrite;
 use std::io::{Read, Write};
 
 struct LineAccumulator<'a, 'b> {
@@ -24,7 +25,7 @@ impl<'a, 'b> LineAccumulator<'a, 'b> {
     }
 
     fn is_empty(&self) -> bool {
-        self.id == 0 || self.hunk == ""
+        self.id == 0 || self.hunk.is_empty()
     }
 
     fn open_new_file(&mut self, id: usize) {
@@ -54,31 +55,32 @@ impl<'a, 'b> LineAccumulator<'a, 'b> {
         false
     }
 
-    fn dump_hunk(&mut self, acc: &mut HunkAccumulator) {
+    fn dump_hunk(&mut self, acc: &mut HunkAccumulator) -> Result<()> {
         if self.is_empty() {
             // clear the state
             self.open_new_hunk("");
-            return;
+            return Ok(());
         }
 
         let hunk: Vec<_> = self.hunk.split(',').collect();
         let original_pos = hunk[0].parse().unwrap();
         let original_lines = self.original.get(&(self.id, original_pos)).unwrap();
 
-        if !self.is_edited(&original_lines) {
+        if !self.is_edited(original_lines) {
             // clear the state
             self.open_new_hunk("");
-            return;
+            return Ok(());
         }
 
         let mut buf = String::new();
-        buf.push_str(&format!(
-            "@@ -{},{} +{},{} @@\n",
+        writeln!(
+            &mut buf,
+            "@@ -{},{} +{},{} @@",
             original_pos,
             original_lines.len(),
             (original_pos as isize + self.pos_diff) as usize,
             self.edited_len
-        ));
+        )?;
         for l in original_lines {
             buf.push('-');
             buf.push_str(l);
@@ -94,6 +96,8 @@ impl<'a, 'b> LineAccumulator<'a, 'b> {
         self.pos_diff += self.edited_len as isize;
         self.pos_diff -= original_lines.len() as isize;
         self.open_new_hunk("");
+
+        Ok(())
     }
 }
 
@@ -175,7 +179,7 @@ impl PatchBuilder {
                 }
             }
         }
-        return false;
+        false
     }
 
     fn avoid_collision(&mut self) -> Result<()> {
@@ -221,8 +225,8 @@ impl PatchBuilder {
                 return Err(anyhow!("unexpected grep line: {}. aborting.", l));
             }
 
-            if v[0] == "" {
-                debug_assert!(v[1] == "" && v[2] == "");
+            if v[0].is_empty() {
+                debug_assert!(v[1].is_empty() && v[2].is_empty());
                 (prev_id, prev_pos, prev_base_pos) = (0, 0, 0);
                 continue;
             }
@@ -298,7 +302,7 @@ impl PatchBuilder {
 
         for l in diff.lines() {
             if l.starts_with(&self.header_marker) {
-                lines.dump_hunk(&mut hunks);
+                lines.dump_hunk(&mut hunks)?;
                 hunks.dump_patch(&mut patch);
 
                 let filename = l[self.header_marker.len()..].trim();
@@ -312,13 +316,13 @@ impl PatchBuilder {
                 hunks.open_new_patch(filename);
                 lines.open_new_file(*id);
             } else if l.starts_with(&self.hunk_marker) {
-                lines.dump_hunk(&mut hunks);
+                lines.dump_hunk(&mut hunks)?;
                 lines.open_new_hunk(l[self.hunk_marker.len()..].trim());
             } else {
                 lines.push_line(l);
             }
         }
-        lines.dump_hunk(&mut hunks);
+        lines.dump_hunk(&mut hunks)?;
 
         Ok(patch)
     }

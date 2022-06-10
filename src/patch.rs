@@ -47,7 +47,12 @@ impl<'a, 'b> LineAccumulator<'a, 'b> {
     }
 
     fn is_edited(&self, original_lines: &[String]) -> bool {
-        for (o, t) in self.buf.lines().zip(original_lines.iter()) {
+        for (o, t) in self
+            .buf
+            .lines()
+            .chain(std::iter::repeat(""))
+            .zip(original_lines.iter())
+        {
             if o != t {
                 return true;
             }

@@ -126,6 +126,9 @@ impl Git {
         if opts.word_boundary {
             args.push("--word-regexp".to_string());
         }
+        if let Some(depth) = opts.max_depth {
+            args.push(format!("--max-depth={}", depth));
+        }
     }
 
     pub fn grep(&self, pattern: &str, opts: &GrepOptions) -> Result<String> {

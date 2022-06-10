@@ -328,6 +328,7 @@ impl PatchBuilder {
             }
         }
         lines.dump_hunk(&mut hunks)?;
+        hunks.dump_patch(&mut patch);
 
         Ok(patch)
     }

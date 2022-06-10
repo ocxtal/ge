@@ -134,7 +134,8 @@ impl Git {
             "grep".to_string(),
             "--color=never".to_string(),
             "--line-number".to_string(),
-            "-I".to_string(), // exclude binary files
+            "-I".to_string(),     // exclude binary files
+            "--null".to_string(), // for unambiguous delimiters
         ];
 
         self.expand_options(opts, &mut args);

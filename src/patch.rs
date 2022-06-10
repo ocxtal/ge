@@ -225,21 +225,33 @@ impl PatchBuilder {
         let mut prev_pos = 0;
         let mut prev_base_pos = 0;
         for l in raw.trim().lines() {
-            let v: Vec<_> = l.splitn(3, &[':', '-', '='][..]).collect();
-            if v.len() != 3 {
-                return Err(anyhow!("unexpected grep line: {}. aborting.", l));
-            }
-
-            if v[0].is_empty() {
-                debug_assert!(v[1].is_empty() && v[2].is_empty());
+            if l == "--" {
                 (prev_id, prev_pos, prev_base_pos) = (0, 0, 0);
                 continue;
             }
 
-            let filename = &v[0];
-            let ln: usize = v[1]
+            // find two '\0's
+            let pos = l.find('\0').with_context(|| {
+                format!(
+                    "failed to find filename-linenumber delimiter in {:?}. aborting.",
+                    l
+                )
+            })?;
+            let (filename, rem) = l.split_at(pos);
+
+            let pos = rem[1..].find('\0').with_context(|| {
+                format!(
+                    "failed to find linenumber-body delimiter in {:?}. aborting.",
+                    l
+                )
+            })?;
+
+            let (ln, rem) = rem[1..].split_at(pos);
+            let body = &rem[1..];
+
+            let ln: usize = ln
                 .parse()
-                .with_context(|| format!("broken grep line number: {}. aborting.", &v[1]))?;
+                .with_context(|| format!("broken grep line number: {}. aborting.", ln))?;
             debug_assert!(ln > 0);
 
             let next_id = self.files.len() + 1;
@@ -249,10 +261,10 @@ impl PatchBuilder {
             if prev_id == id && prev_pos == ln - 1 {
                 // continues
                 self.raw_hunks.entry((id, prev_base_pos)).and_modify(|e| {
-                    e.push(v[2].to_string()); // we may need to add a prefix here
+                    e.push(body.to_string()); // we may need to add a prefix here
                 });
             } else {
-                self.raw_hunks.insert((id, ln), vec![v[2].to_string()]);
+                self.raw_hunks.insert((id, ln), vec![body.to_string()]);
                 prev_base_pos = ln;
             }
 

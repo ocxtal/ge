@@ -210,3 +210,67 @@ impl Git {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{Git, GrepOptions};
+    use clap::Parser;
+
+    #[test]
+    fn test_new() {
+        assert!(Git::new().is_ok());
+    }
+
+    #[test]
+    fn test_grep() {
+        macro_rules! opts {
+            ( $args: expr ) => {
+                &GrepOptions::parse_from($args.split_whitespace())
+            };
+        }
+
+        // assume tests/quick.txt exists
+        let git = Git::new().unwrap();
+
+        // "xyz" is a placeholder for a command name
+        let output = git.grep("fox", opts!("xyz")).unwrap();
+        assert!(output.lines().count() >= 2);
+
+        let output = git.grep("fox", opts!("xyz -y tests/*.txt")).unwrap();
+        assert!(output.lines().count() == 2);
+
+        let output = git.grep("fox", opts!("xyz -x tests/*.txt -x src")).unwrap();
+        assert!(output.lines().count() == 0);
+
+        let output = git.grep("fox", opts!("xyz --max-depth 0")).unwrap();
+        assert!(output.lines().count() == 0);
+
+        let output = git.grep("fox", opts!("xyz --max-depth 1")).unwrap();
+        assert!(output.lines().count() >= 2);
+
+        let output = git.grep("FOX", opts!("xyz -y tests/*.txt -i")).unwrap();
+        assert!(output.lines().count() == 2);
+
+        let output = git.grep("quic", opts!("xyz -y tests/*.txt")).unwrap();
+        assert!(output.lines().count() == 1);
+
+        let output = git.grep("quic", opts!("xyz -y tests/*.txt -w")).unwrap();
+        assert!(output.lines().count() == 0);
+
+        let output = git.grep("fox", opts!("xyz -y tests/*.txt -v")).unwrap();
+        assert!(output.lines().count() == 13);
+
+        let output = git.grep("fox", opts!("xyz -y tests/*.txt -C2")).unwrap();
+        assert!(output.lines().count() == 2 * 5 + 1);
+
+        let output = git.grep("fox", opts!("xyz -y tests/*.txt -A1")).unwrap();
+        assert!(output.lines().count() == 2 * 2 + 1);
+
+        let output = git.grep("fox", opts!("xyz -y tests/*.txt -B1")).unwrap();
+        assert!(output.lines().count() == 2 * 2 + 1);
+
+        // TODO: --mode and --function-context
+    }
+
+    // TODO: git.apply
+}

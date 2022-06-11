@@ -47,6 +47,11 @@ impl Editor {
     }
 
     fn is_a_vim(editor: &str) -> bool {
+        if editor.starts_with("nano") {
+            // nano doesn't recognize "--version" nor "--help"
+            return false;
+        }
+
         let output = Command::new(editor).args(&["--version"]).output();
         if output.is_err() {
             return false;
@@ -104,5 +109,45 @@ impl Write for Editor {
 
     fn flush(&mut self) -> std::io::Result<()> {
         self.file.flush()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Editor;
+    use std::io::{Read, Write};
+
+    // we expect nano, vim, and grep exist in the environment
+    #[test]
+    fn test_exists() {
+        assert!(Editor::exists("nano"));
+        assert!(Editor::exists("vim"));
+        assert!(Editor::exists("grep"));
+
+        assert!(!Editor::exists("this-is-not-a-command"));
+        assert!(!Editor::exists("abcabcabcabcd"));
+    }
+
+    #[test]
+    fn test_is_a_vim() {
+        assert!(!Editor::is_a_vim("nano"));
+        assert!(Editor::is_a_vim("vim"));
+        assert!(!Editor::is_a_vim("grep"));
+
+        assert!(!Editor::is_a_vim("this-is-not-a-command"));
+        assert!(!Editor::is_a_vim("abcabcabcabcd"));
+    }
+
+    #[test]
+    fn test_passthrough() {
+        let mut editor = Editor::new("touch").unwrap();
+
+        let input = "the quick brown fox jumps over the lazy dog.";
+        editor.write_all(input.as_bytes()).unwrap();
+        editor.wait().unwrap();
+
+        let mut output = String::new();
+        editor.read_to_string(&mut output).unwrap();
+        assert_eq!(output.as_str(), input);
     }
 }

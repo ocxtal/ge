@@ -1,3 +1,4 @@
+use crate::hunks::Hunks;
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::fmt::Write as FmtWrite;
@@ -15,7 +16,7 @@ struct LineAccumulator<'a, 'b> {
 impl<'a, 'b> LineAccumulator<'a, 'b> {
     fn new(original: &'b HashMap<(usize, usize), Vec<String>>) -> Self {
         LineAccumulator {
-            id: 0,
+            id: usize::MAX,
             hunk: "",
             buf: String::new(),
             edited_len: 0,
@@ -25,7 +26,7 @@ impl<'a, 'b> LineAccumulator<'a, 'b> {
     }
 
     fn is_empty(&self) -> bool {
-        self.id == 0 || self.hunk.is_empty()
+        self.id == usize::MAX || self.hunk.is_empty()
     }
 
     fn open_new_file(&mut self, id: usize) {
@@ -68,7 +69,7 @@ impl<'a, 'b> LineAccumulator<'a, 'b> {
         }
 
         let hunk: Vec<_> = self.hunk.split(',').collect();
-        let original_pos = hunk[0].parse().unwrap();
+        let original_pos = hunk[0].parse::<usize>().unwrap() - 1;
         let original_lines = self.original.get(&(self.id, original_pos)).unwrap();
 
         if !self.is_edited(original_lines) {
@@ -158,7 +159,7 @@ pub struct PatchBuilder {
 }
 
 impl PatchBuilder {
-    pub fn from_grep(config: &HalfDiffConfig, raw: &str) -> Result<Self> {
+    pub fn from_hunks(config: &HalfDiffConfig, hunks: Hunks) -> Result<Self> {
         let header_marker = config.header.map_or("+++".to_string(), |x| x.to_string());
         let hunk_marker = config.hunk.map_or("@@".to_string(), |x| x.to_string());
 
@@ -167,11 +168,19 @@ impl PatchBuilder {
             hunk_marker,
             header_collision_avoidance: config.header.is_none(),
             hunk_collision_avoidance: config.hunk.is_none(),
-            files: HashMap::new(),
-            raw_hunks: HashMap::new(),
+            files: hunks
+                .files
+                .into_iter()
+                .enumerate()
+                .map(|(x, y)| (y, x))
+                .collect(),
+            raw_hunks: hunks
+                .hunks
+                .into_iter()
+                .map(|(x, y, z)| ((x, y), z))
+                .collect(),
         };
 
-        locs.parse_grep(raw)?;
         locs.avoid_collision()?;
         Ok(locs)
     }
@@ -220,61 +229,6 @@ impl PatchBuilder {
         Ok(())
     }
 
-    fn parse_grep(&mut self, raw: &str) -> Result<()> {
-        let mut prev_id = 0;
-        let mut prev_pos = 0;
-        let mut prev_base_pos = 0;
-        for l in raw.trim().lines() {
-            if l == "--" {
-                (prev_id, prev_pos, prev_base_pos) = (0, 0, 0);
-                continue;
-            }
-
-            // find two '\0's
-            let pos = l.find('\0').with_context(|| {
-                format!(
-                    "failed to find filename-linenumber delimiter in {:?}. aborting.",
-                    l
-                )
-            })?;
-            let (filename, rem) = l.split_at(pos);
-
-            let pos = rem[1..].find('\0').with_context(|| {
-                format!(
-                    "failed to find linenumber-body delimiter in {:?}. aborting.",
-                    l
-                )
-            })?;
-
-            let (ln, rem) = rem[1..].split_at(pos);
-            let body = &rem[1..];
-
-            let ln: usize = ln
-                .parse()
-                .with_context(|| format!("broken grep line number: {}. aborting.", ln))?;
-            debug_assert!(ln > 0);
-
-            let next_id = self.files.len() + 1;
-            let id = *self.files.entry(filename.to_string()).or_insert(next_id);
-            debug_assert!(id > 0);
-
-            if prev_id == id && prev_pos == ln - 1 {
-                // continues
-                self.raw_hunks.entry((id, prev_base_pos)).and_modify(|e| {
-                    e.push(body.to_string()); // we may need to add a prefix here
-                });
-            } else {
-                self.raw_hunks.insert((id, ln), vec![body.to_string()]);
-                prev_base_pos = ln;
-            }
-
-            prev_id = id;
-            prev_pos = ln;
-        }
-
-        Ok(())
-    }
-
     pub fn write_halfdiff(&self, drain: &mut dyn Write) -> Result<()> {
         // index files
         let index: HashMap<usize, &str> = self.files.iter().map(|x| (*x.1, x.0.as_str())).collect();
@@ -283,7 +237,7 @@ impl PatchBuilder {
         let mut keys: Vec<_> = self.raw_hunks.keys().collect();
         keys.sort();
 
-        let mut prev_id = 0;
+        let mut prev_id = usize::MAX;
         for &(id, pos) in keys {
             if prev_id != id {
                 let filename = index.get(&id).unwrap();
@@ -293,7 +247,7 @@ impl PatchBuilder {
 
             let lines = self.raw_hunks.get(&(id, pos)).unwrap();
 
-            let mut acc = format!("{} {},{}\n", self.hunk_marker, pos, lines.len());
+            let mut acc = format!("{} {},{}\n", self.hunk_marker, pos + 1, lines.len());
             for line in lines {
                 acc.push_str(line);
                 acc.push('\n');

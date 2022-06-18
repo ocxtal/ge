@@ -25,30 +25,6 @@ pub struct GrepOptions {
     mode: GrepMode,
 
     #[clap(
-        short = 'C',
-        long,
-        name = "N",
-        help = "Include <N> additional lines before and after matches"
-    )]
-    context: Option<usize>,
-
-    #[clap(
-        short = 'B',
-        long = "before-context",
-        name = "B",
-        help = "Include <B> additional lines before matches"
-    )]
-    before: Option<usize>,
-
-    #[clap(
-        short = 'A',
-        long = "after-context",
-        name = "A",
-        help = "Include <A> additional lines after matches"
-    )]
-    after: Option<usize>,
-
-    #[clap(
         short = 'W',
         long = "funciton-context",
         help = "Extend match to the entire function"
@@ -105,15 +81,6 @@ impl Git {
             GrepMode::Pcre => "--perl-regexp".to_string(),
         });
 
-        if let Some(c) = opts.context {
-            args.push(format!("--context={}", c));
-        }
-        if let Some(b) = opts.before {
-            args.push(format!("--before-context={}", b));
-        }
-        if let Some(a) = opts.after {
-            args.push(format!("--after-context={}", a));
-        }
         if opts.function {
             args.push("--function-context".to_string());
         }
@@ -131,7 +98,7 @@ impl Git {
         }
     }
 
-    pub fn grep(&self, pattern: &str, opts: &GrepOptions) -> Result<String> {
+    pub fn grep(&self, pattern: &str, opts: &GrepOptions) -> Result<GrepResult> {
         // compose arguments
         let mut args = vec![
             "grep".to_string(),
@@ -179,7 +146,7 @@ impl Git {
             "failed to interpret the output of \"git grep\" as a UTF-8 string. aborting.",
         )?;
 
-        Ok(output)
+        GrepResult::from_raw(&output)
     }
 
     pub fn apply(&self, patch: &str) -> Result<()> {
@@ -211,6 +178,81 @@ impl Git {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct GrepHit {
+    pub file_id: usize,
+    pub from: usize,
+    pub n_lines: usize,
+}
+
+#[derive(Debug)]
+pub struct GrepResult {
+    pub files: Vec<String>,
+    pub hits: Vec<GrepHit>,
+}
+
+impl GrepResult {
+    fn parse_line(line: &str) -> Result<(&str, usize)> {
+        // find two '\0's
+        let pos = line.find('\0').with_context(|| {
+            format!(
+                "failed to find filename-linenumber delimiter in {:?}. aborting.",
+                line
+            )
+        })?;
+        let (filename, rem) = line.split_at(pos);
+
+        let pos = rem[1..].find('\0').with_context(|| {
+            format!(
+                "failed to find linenumber-body delimiter in {:?}. aborting.",
+                line
+            )
+        })?;
+
+        let (at, _) = rem[1..].split_at(pos);
+        let at: usize = at
+            .parse()
+            .with_context(|| format!("broken grep line number: {}. aborting.", at))?;
+        debug_assert!(at > 0);
+
+        Ok((filename, at - 1))
+    }
+
+    fn from_raw(raw: &str) -> Result<GrepResult> {
+        let mut bin = GrepResult {
+            files: Vec::new(),
+            hits: Vec::new(),
+        };
+
+        for line in raw.trim().lines() {
+            if line == "--" {
+                continue;
+            }
+
+            let (filename, at) = Self::parse_line(line)?;
+
+            if bin.files.is_empty() || bin.files.last().unwrap() != filename {
+                bin.files.push(filename.to_string());
+            }
+
+            let file_id = bin.files.len() - 1;
+            if let Some(last_hit) = bin.hits.last_mut() {
+                if last_hit.file_id == file_id && last_hit.from + last_hit.n_lines == at {
+                    last_hit.n_lines += 1;
+                    continue;
+                }
+            }
+
+            bin.hits.push(GrepHit {
+                file_id,
+                from: at,
+                n_lines: 1,
+            });
+        }
+        Ok(bin)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{Git, GrepOptions};
@@ -234,40 +276,32 @@ mod tests {
 
         // "xyz" is a placeholder for a command name
         let output = git.grep("fox", opts!("xyz")).unwrap();
-        assert!(output.lines().count() >= 2);
+        assert!(output.hits.len() >= 2);
 
         let output = git.grep("fox", opts!("xyz -y tests/*.txt")).unwrap();
-        assert!(output.lines().count() == 2);
+        assert!(output.hits.len() == 2);
 
         let output = git.grep("fox", opts!("xyz -x tests/*.txt -x src")).unwrap();
-        assert!(output.lines().count() == 0);
+        assert!(output.hits.len() == 0);
 
         let output = git.grep("fox", opts!("xyz --max-depth 0")).unwrap();
-        assert!(output.lines().count() == 0);
+        assert!(output.hits.len() == 0);
 
         let output = git.grep("fox", opts!("xyz --max-depth 1")).unwrap();
-        assert!(output.lines().count() >= 2);
+        assert!(output.hits.len() >= 2);
 
         let output = git.grep("FOX", opts!("xyz -y tests/*.txt -i")).unwrap();
-        assert!(output.lines().count() == 2);
+        assert!(output.hits.len() == 2);
 
         let output = git.grep("quic", opts!("xyz -y tests/*.txt")).unwrap();
-        assert!(output.lines().count() == 1);
+        assert!(output.hits.len() == 1);
 
         let output = git.grep("quic", opts!("xyz -y tests/*.txt -w")).unwrap();
-        assert!(output.lines().count() == 0);
+        assert!(output.hits.len() == 0);
 
         let output = git.grep("fox", opts!("xyz -y tests/*.txt -v")).unwrap();
-        assert!(output.lines().count() == 13);
-
-        let output = git.grep("fox", opts!("xyz -y tests/*.txt -C2")).unwrap();
-        assert!(output.lines().count() == 2 * 5 + 1);
-
-        let output = git.grep("fox", opts!("xyz -y tests/*.txt -A1")).unwrap();
-        assert!(output.lines().count() == 2 * 2 + 1);
-
-        let output = git.grep("fox", opts!("xyz -y tests/*.txt -B1")).unwrap();
-        assert!(output.lines().count() == 2 * 2 + 1);
+        assert!(output.hits.len() == 3);
+        assert!(output.hits.iter().map(|x| x.n_lines).sum::<usize>() == 13);
 
         // TODO: --mode and --function-context
     }

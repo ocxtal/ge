@@ -1,5 +1,6 @@
 mod editor;
 mod git;
+mod hunks;
 mod pager;
 mod patch;
 
@@ -9,6 +10,7 @@ use std::io::{BufReader, BufWriter, Write};
 
 use crate::editor::Editor;
 use crate::git::{Git, GrepOptions};
+use crate::hunks::{HunkOptions, Hunks};
 use crate::pager::Pager;
 use crate::patch::{HalfDiffConfig, PatchBuilder};
 
@@ -20,6 +22,9 @@ struct Args {
 
     #[clap(flatten)]
     grep_opts: GrepOptions,
+
+    #[clap(flatten)]
+    hunk_opts: HunkOptions,
 
     #[clap(short, long, help = "Show matches and exit")]
     preview: bool,
@@ -52,14 +57,14 @@ fn main() -> Result<()> {
 
     // create git object, run git-grep to collect matches
     let git = Git::new()?;
-    let grep_output = git.grep(&args.pattern, &args.grep_opts)?;
+    let hunks = Hunks::collect(&git, &args.pattern, &args.grep_opts, &args.hunk_opts)?;
 
     // parse the result
     let config = &HalfDiffConfig {
         header: args.header.as_deref(),
         hunk: args.hunk.as_deref(),
     };
-    let gen = PatchBuilder::from_grep(config, &grep_output)?;
+    let gen = PatchBuilder::from_hunks(config, hunks)?;
 
     // convert the git-grep result (hit locations) into "halfdiff" that will be edited by the user
     if args.preview {

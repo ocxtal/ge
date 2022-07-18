@@ -167,7 +167,10 @@ impl Hunks {
             Self::collect_hunks_from_file(&matches, from..i, &mut hunks)?;
             from = i;
         }
-        Self::collect_hunks_from_file(&matches, from..matches.hits.len(), &mut hunks)?;
+
+        if from < matches.hits.len() {
+            Self::collect_hunks_from_file(&matches, from..matches.hits.len(), &mut hunks)?;
+        }
 
         Ok(Hunks {
             files: matches.files,

@@ -221,3 +221,95 @@ impl Hunks {
         Ok(acc)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{Git, GrepOptions, Hunks, HunkOptions};
+    use clap::Parser;
+
+    #[test]
+    fn test_collect() {
+        macro_rules! opts {
+            ( $args: expr ) => {
+                &HunkOptions::parse_from($args.split_whitespace())
+            };
+        }
+
+        let git = Git::new().unwrap();
+        let grep_opts = GrepOptions::parse_from("ge -y tests".split_whitespace());
+
+        let hunks = Hunks::collect(&git, "assert_eq", &grep_opts, opts!("ge")).unwrap();
+        assert_eq!(hunks.files.len(), 0);
+        assert_eq!(hunks.hunks.len(), 0);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 2);
+        assert_eq!(hunks.hunks[0].2.len(), 1);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge -B2")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 0);
+        assert_eq!(hunks.hunks[0].2.len(), 3);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge -B4")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 0);
+        assert_eq!(hunks.hunks[0].2.len(), 3);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge -A2")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 2);
+        assert_eq!(hunks.hunks[0].2.len(), 2);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge -C0")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 2);
+        assert_eq!(hunks.hunks[0].2.len(), 1);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge -C1")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 1);
+        assert_eq!(hunks.hunks[0].2.len(), 3);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge -C5")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 0);
+        assert_eq!(hunks.hunks[0].2.len(), 4);
+
+        let hunks = Hunks::collect(&git, "fn", &grep_opts, opts!("ge --to )")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 1);
+        assert_eq!(hunks.hunks[0].2.len(), 1);
+
+        let hunks = Hunks::collect(&git, "fn", &grep_opts, opts!("ge --to }")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 1);
+        assert_eq!(hunks.hunks[0].2.len(), 3);
+
+        let hunks = Hunks::collect(&git, "fox", &grep_opts, opts!("ge")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 2);
+
+        let hunks = Hunks::collect(&git, "fox", &grep_opts, opts!("ge -C5")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+
+        let hunks = Hunks::collect(&git, "f.\\+", &grep_opts, opts!("ge")).unwrap();
+        assert_eq!(hunks.files.len(), 2);
+        assert_eq!(hunks.hunks.len(), 3);
+
+        let hunks = Hunks::collect(&git, "f.\\+", &grep_opts, opts!("ge -C5")).unwrap();
+        assert_eq!(hunks.files.len(), 2);
+        assert_eq!(hunks.hunks.len(), 2);
+    }
+}

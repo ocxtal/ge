@@ -274,36 +274,56 @@ mod tests {
         // assume tests/quick.txt exists
         let git = Git::new().unwrap();
 
-        // "xyz" is a placeholder for a command name
-        let output = git.grep("fox", opts!("xyz")).unwrap();
+        // "ge" is a placeholder for a command name
+        let output = git.grep("fox", opts!("ge")).unwrap();
         assert!(output.hits.len() >= 2);
 
-        let output = git.grep("fox", opts!("xyz -y tests/*.txt")).unwrap();
-        assert!(output.hits.len() == 2);
+        let output = git.grep("fox", opts!("ge -y tests/*.txt")).unwrap();
+        assert_eq!(output.hits.len(), 2);
 
-        let output = git.grep("fox", opts!("xyz -x tests/*.txt -x src")).unwrap();
-        assert!(output.hits.len() == 0);
+        let output = git.grep("fox", opts!("ge -x tests/*.txt -x src")).unwrap();
+        assert_eq!(output.hits.len(), 0);
 
-        let output = git.grep("fox", opts!("xyz --max-depth 0")).unwrap();
-        assert!(output.hits.len() == 0);
+        let output = git.grep("fox", opts!("ge --max-depth 0")).unwrap();
+        assert_eq!(output.hits.len(), 0);
 
-        let output = git.grep("fox", opts!("xyz --max-depth 1")).unwrap();
+        let output = git.grep("fox", opts!("ge --max-depth 1")).unwrap();
         assert!(output.hits.len() >= 2);
 
-        let output = git.grep("FOX", opts!("xyz -y tests/*.txt -i")).unwrap();
-        assert!(output.hits.len() == 2);
+        let output = git.grep("FOX", opts!("ge -y tests/*.txt -i")).unwrap();
+        assert_eq!(output.hits.len(), 2);
 
-        let output = git.grep("quic", opts!("xyz -y tests/*.txt")).unwrap();
-        assert!(output.hits.len() == 1);
+        let output = git.grep("quic", opts!("ge -y tests/*.txt")).unwrap();
+        assert_eq!(output.hits.len(), 1);
 
-        let output = git.grep("quic", opts!("xyz -y tests/*.txt -w")).unwrap();
-        assert!(output.hits.len() == 0);
+        let output = git.grep("quic", opts!("ge -y tests/*.txt -w")).unwrap();
+        assert_eq!(output.hits.len(), 0);
 
-        let output = git.grep("fox", opts!("xyz -y tests/*.txt -v")).unwrap();
-        assert!(output.hits.len() == 3);
-        assert!(output.hits.iter().map(|x| x.n_lines).sum::<usize>() == 13);
+        let output = git.grep("fox", opts!("ge -y tests/*.txt -v")).unwrap();
+        assert_eq!(output.hits.len(), 3);
+        assert_eq!(output.hits.iter().map(|x| x.n_lines).sum::<usize>(), 18);
 
-        // TODO: --mode and --function-context
+        // --mode
+        let output = git.grep("(fox)|(dog)", opts!("ge --mode=basic -y tests/*.txt")).unwrap();
+        assert_eq!(output.hits.len(), 0);
+
+        let output = git.grep("\\(fox\\)\\|\\(dog\\)", opts!("ge --mode=basic -y tests/*.txt")).unwrap();
+        assert!(output.hits.len() > 0);
+
+        let output = git.grep("(fox)|(dog)", opts!("ge --mode=extended -y tests/*.txt")).unwrap();
+        assert!(output.hits.len() > 0);
+
+        let output = git.grep("(fox)|(dog)", opts!("ge --mode=extended -y tests/*.txt")).unwrap();
+        assert!(output.hits.len() > 0);
+
+        // --function-context
+        let output = git.grep("assert", opts!("ge -y tests/*.rs")).unwrap();
+        assert_eq!(output.hits.len(), 1);
+        assert_eq!(output.hits[0].n_lines, 1);
+
+        let output = git.grep("assert", opts!("ge --function-context -y tests/*.rs")).unwrap();
+        assert_eq!(output.hits.len(), 1);
+        assert_eq!(output.hits[0].n_lines, 4);
     }
 
     // TODO: git.apply

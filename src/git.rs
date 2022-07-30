@@ -26,7 +26,7 @@ pub struct GrepOptions {
 
     #[clap(
         short = 'W',
-        long = "funciton-context",
+        long = "function-context",
         help = "Extend match to the entire function"
     )]
     function: bool,

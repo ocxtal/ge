@@ -38,7 +38,7 @@ It has one mandatory positional argument:
 
 * `PATTERN` to search with **git grep**. Can be a regular expression (See the `--mode` option for the details).
 
-Some options controls the range to extract with grep:
+Some options control the range to extract with grep:
 
 * `--after-context=N` adds N lines after matches
 * `--before-context=N` adds N lines before matches

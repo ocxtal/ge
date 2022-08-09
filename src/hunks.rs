@@ -224,7 +224,7 @@ impl Hunks {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Git, GrepOptions, Hunks, HunkOptions};
+    use crate::{Git, GrepOptions, HunkOptions, Hunks};
     use clap::Parser;
 
     #[test]

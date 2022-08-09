@@ -304,16 +304,27 @@ mod tests {
         assert_eq!(output.hits.iter().map(|x| x.n_lines).sum::<usize>(), 18);
 
         // --mode
-        let output = git.grep("(fox)|(dog)", opts!("ge --mode=basic -y tests/*.txt")).unwrap();
+        let output = git
+            .grep("(fox)|(dog)", opts!("ge --mode=basic -y tests/*.txt"))
+            .unwrap();
         assert_eq!(output.hits.len(), 0);
 
-        let output = git.grep("\\(fox\\)\\|\\(dog\\)", opts!("ge --mode=basic -y tests/*.txt")).unwrap();
+        let output = git
+            .grep(
+                "\\(fox\\)\\|\\(dog\\)",
+                opts!("ge --mode=basic -y tests/*.txt"),
+            )
+            .unwrap();
         assert!(output.hits.len() > 0);
 
-        let output = git.grep("(fox)|(dog)", opts!("ge --mode=extended -y tests/*.txt")).unwrap();
+        let output = git
+            .grep("(fox)|(dog)", opts!("ge --mode=extended -y tests/*.txt"))
+            .unwrap();
         assert!(output.hits.len() > 0);
 
-        let output = git.grep("(fox)|(dog)", opts!("ge --mode=extended -y tests/*.txt")).unwrap();
+        let output = git
+            .grep("(fox)|(dog)", opts!("ge --mode=extended -y tests/*.txt"))
+            .unwrap();
         assert!(output.hits.len() > 0);
 
         // --function-context
@@ -321,7 +332,9 @@ mod tests {
         assert_eq!(output.hits.len(), 1);
         assert_eq!(output.hits[0].n_lines, 1);
 
-        let output = git.grep("assert", opts!("ge --function-context -y tests/*.rs")).unwrap();
+        let output = git
+            .grep("assert", opts!("ge --function-context -y tests/*.rs"))
+            .unwrap();
         assert_eq!(output.hits.len(), 1);
         assert_eq!(output.hits[0].n_lines, 4);
     }

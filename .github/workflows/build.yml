@@ -49,18 +49,19 @@ jobs:
         with:
           use-cross: true
           command: check
+          args: --target aarch64-unknown-linux-gnu
       - uses: actions-rs/cargo@v1
         name: Run cargo fmt --all -- --check
         with:
           use-cross: true
           command: fmt
-          args: --all -- --check
+          args: --target aarch64-unknown-linux-gnu --all -- --check
       - uses: actions-rs/cargo@v1
         name: Run cargo clippy
         with:
           use-cross: true
           command: clippy
-          args: -- -D warnings
+          args: --target aarch64-unknown-linux-gnu -- -D warnings
         env:
           RUSTFLAGS: "-C target-cpu=native"
       - uses: actions-rs/cargo@v1
@@ -68,5 +69,6 @@ jobs:
         with:
           use-cross: true
           command: test
+          args: --target aarch64-unknown-linux-gnu
         env:
           RUSTFLAGS: "-C target-cpu=native"

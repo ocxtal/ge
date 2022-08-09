@@ -1,16 +1,23 @@
 
 # ge − grep and edit git-tracked files in bulk
 
-**ge** is a tool to edit grep match locations all at once in a single editor pane. It does the following four steps when invoked:
+**ge** is a tool to edit grep match locations all at once in a single editor pane. When ge is combined with a modern editor with a multi-cursor feature, it makes multi-file editing much easier than the traditional sed (or perl or awk, etc.) way. It is especially powerful if the target files have properties like:
+
+* each edit location consists of multiple lines
+* and these lines are not exactly the same
+
+Such situations often happen when reordering or extending arguments of a function that is used at many locations (e.g., with different argument variable names, different linebreak positions, and/or different indentation levels), or modifying configuration files that are almost the same but different in details (e.g., CI scripts for various targets and environments).
+
+![example](./figs/example.png)
+
+*Figure 1. Editing two `split_whitespace`s in different files at once, which are found with the keyword `split`.*
+
+ge performs the following four steps when invoked:
 
 * queries the input word (can be in a regular expression) with **git grep**
 * composes a **"half diff"**
 * **launches an editor** for users to edit the half diff, and then waits for the user
 * converts the edited half diff to a regular unified diff, and feeds it to **git apply**
-
-![example](./figs/example.png)
-
-*Editing two `split_whitespace`s in different files at once, which are found with the keyword `split`.*
 
 ## Using different editors
 
@@ -31,7 +38,7 @@ ge recognizes the environment variable `EDITOR` as well. Note that the `--editor
 ## Arguments and options
 
 ```bash
-ge [OPTIONS] PATTERN
+ge [--editor=EDITOR] [GREP RANGE OPTIONS] PATTERN
 ```
 
 It has one mandatory positional argument:
@@ -49,16 +56,16 @@ Some options control the range to extract with grep:
 And some options to control the output:
 
 * `--editor=EDITOR` overrides the editor to use. The default is `vi`.
-* `--pager=PAGER` overrides the drain for the `--preview` mode. The default is `less -F`.
 * `--preview` only dumps half diffs if specified.
+* `--pager=PAGER` overrides the drain for the `--preview` mode. The default is `less -F`.
 
-It has some more options such as `--header=HEADER` and `--hunk=HUNK`. See `ge --help` for the details.
+It has some more options such as `--header=HEADER` and `--hunk=HUNK`. See `ge --help` for the details of these extra options and the shorthand form of the basic options above.
 
 ## "Half diffs" explained
 
 Half diff is a unified diff format with only the target lines. The original lines are cached inside ge during editing and don't appear in the file edited by the user. A typical half diff looks like this:
 
-```
+```rust
 +++ src/editor.rs
 @@ 95,1
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -86,13 +93,17 @@ Half diff is a unified diff format with only the target lines. The original line
 [Rust toolchain](https://rustup.rs/) is required.
 
 ```bash
+cargo install --git https://github.com/ocxtal/ge
+```
+
+or
+
+```bash
 git clone https://github.com/ocxtal/ge.git
 cd ge
 cargo build --release
 # `ge` is built in `./target/release`. copy it anywhere you want.
 ```
-
-
 
 ## Notes
 
@@ -102,4 +113,3 @@ cargo build --release
 ## Copyright and license
 
 Hajime Suzuki (2022). Licensed under MIT.
-

@@ -2,15 +2,15 @@ on:
   pull_request:
     types: [opened, synchronize]
 jobs:
-  amd64-linux-nightly:
-    name: amd64-linux-nightly
+  amd64-linux-stable:
+    name: amd64-linux-stable
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: stable
           override: true
       - run: rustup component add rustfmt clippy
       - uses: actions-rs/cargo@v1

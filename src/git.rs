@@ -336,7 +336,7 @@ mod tests {
             .grep("assert", opts!("ge --function-context -y tests/*.rs"))
             .unwrap();
         assert_eq!(output.hits.len(), 1);
-        assert_eq!(output.hits[0].n_lines, 4);
+        assert!(output.hits[0].n_lines >= 3);   // workaround for old versions of git that excludes `#[test]`
     }
 
     // TODO: git.apply

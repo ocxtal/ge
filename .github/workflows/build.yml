@@ -31,3 +31,42 @@ jobs:
           command: test
         env:
           RUSTFLAGS: "-C target-cpu=native"
+
+  aarch64-linux-stable:
+    name: aarch64-linux-stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: aarch64-unknown-linux-gnu
+          override: true
+      - run: rustup component add rustfmt clippy
+      - uses: actions-rs/cargo@v1
+        name: Run cargo check
+        with:
+          use-cross: true
+          command: check
+      - uses: actions-rs/cargo@v1
+        name: Run cargo fmt --all -- --check
+        with:
+          use-cross: true
+          command: fmt
+          args: --all -- --check
+      - uses: actions-rs/cargo@v1
+        name: Run cargo clippy
+        with:
+          use-cross: true
+          command: clippy
+          args: -- -D warnings
+        env:
+          RUSTFLAGS: "-C target-cpu=native"
+      - uses: actions-rs/cargo@v1
+        name: Run cargo test
+        with:
+          use-cross: true
+          command: test
+        env:
+          RUSTFLAGS: "-C target-cpu=native"

@@ -1,0 +1,48 @@
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+jobs:
+  amd64-linux-stable:
+    name: amd64-linux-stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        name: Run cargo build --release
+        with:
+          command: build
+          args: --release
+      - uses: svenstaro/upload-release-action@v2
+        name: Upload binaries to release
+        with:
+          file: target/release/ge
+          asset_name: ge-amd64-linux-stable
+
+  aarch64-linux-stable:
+    name: aarch64-linux-stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: aarch64-unknown-linux-gnu
+          override: true
+      - uses: actions-rs/cargo@v1
+        name: Run cargo build --release
+        with:
+          use-cross: true
+          command: build
+          args: --target aarch64-unknown-linux-gnu --release
+      - uses: svenstaro/upload-release-action@v2
+        name: Upload binaries to release
+        with:
+          file: target/aarch64-unknown-linux-gnu/release/ge
+          asset_name: ge-aarch64-linux-stable

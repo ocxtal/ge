@@ -181,7 +181,7 @@ impl Git {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GrepHit {
     pub file_id: usize,
     pub from: usize,

@@ -31,9 +31,6 @@ pub struct GrepOptions {
     )]
     function: bool,
 
-    #[clap(short = 'v', long = "invert-match", help = "Invert matches")]
-    invert: bool,
-
     #[clap(short = 'i', long = "ignore-case", help = "Case-insensitive search")]
     ignore_case: bool,
 
@@ -86,9 +83,6 @@ impl Git {
 
         if opts.function {
             args.push("--function-context".to_string());
-        }
-        if opts.invert {
-            args.push("--invert-match".to_string());
         }
         if opts.ignore_case {
             args.push("--ignore-case".to_string());
@@ -301,10 +295,6 @@ mod tests {
 
         let output = git.grep("quic", opts!("ge -y tests/*.txt -w")).unwrap();
         assert_eq!(output.hits.len(), 0);
-
-        let output = git.grep("fox", opts!("ge -y tests/*.txt -v")).unwrap();
-        assert_eq!(output.hits.len(), 3);
-        assert_eq!(output.hits.iter().map(|x| x.n_lines).sum::<usize>(), 18);
 
         // --mode
         let output = git

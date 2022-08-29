@@ -339,5 +339,17 @@ mod tests {
         let hunks = Hunks::collect(&git, "f.\\+", &grep_opts, opts!("ge -C5")).unwrap();
         assert_eq!(hunks.files.len(), 2);
         assert_eq!(hunks.hunks.len(), 2);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge --head 2")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 0);
+        assert_eq!(hunks.hunks[0].2.len(), 2);
+
+        let hunks = Hunks::collect(&git, "fox", &grep_opts, opts!("ge --head 3")).unwrap();
+        assert_eq!(hunks.files.len(), 1);
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 0);
+        assert_eq!(hunks.hunks[0].2.len(), 3);
     }
 }

@@ -29,10 +29,18 @@ struct Args {
     #[clap(short, long, help = "Show matches and exit")]
     preview: bool,
 
-    #[clap(long, help = "Use <HEADER> for header markers [default: +++]")]
+    #[clap(
+        long,
+        value_name = "MARKER",
+        help = "Use <MARKER> for header markers [default: +++]"
+    )]
     header: Option<String>,
 
-    #[clap(long, help = "Use <HUNK> for hunk markers [default: @@]")]
+    #[clap(
+        long,
+        value_name = "MARKER",
+        help = "Use <MARKER> for hunk markers [default: @@]"
+    )]
     hunk: Option<String>,
 
     #[clap(short, long, help = "Use <EDITOR> to edit matches [default: vi]")]

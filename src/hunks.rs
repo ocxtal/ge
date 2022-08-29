@@ -395,5 +395,22 @@ mod tests {
         assert_eq!(hunks.hunks.len(), 1);
         assert_eq!(hunks.hunks[0].1, 0);
         assert_eq!(hunks.hunks[0].2.len(), 3);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge --with fn")).unwrap();
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 2);
+        assert_eq!(hunks.hunks[0].2.len(), 1);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge --with xyzxyz")).unwrap();
+        assert_eq!(hunks.hunks.len(), 0);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge --without fn")).unwrap();
+        assert_eq!(hunks.hunks.len(), 0);
+
+        let hunks =
+            Hunks::collect(&git, "assert", &grep_opts, opts!("ge --without xyzxyz")).unwrap();
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 2);
+        assert_eq!(hunks.hunks[0].2.len(), 1);
     }
 }

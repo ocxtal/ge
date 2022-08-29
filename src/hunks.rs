@@ -32,6 +32,14 @@ pub struct HunkOptions {
     after: Option<usize>,
 
     #[clap(
+        short = 'H',
+        long = "head",
+        value_name = "N",
+        help = "Edit <N> lines from the head of files that have matches"
+    )]
+    head: Option<usize>,
+
+    #[clap(
         long = "to",
         value_name = "PATTERN",
         help = "Extend match downward until the first hit of PATTERN"
@@ -40,12 +48,25 @@ pub struct HunkOptions {
 }
 
 trait MatchExtender {
+    fn collect_head(&mut self, n_lines: usize) -> Result<()>;
     fn extend_to_another(&mut self, to: &GrepResult) -> Result<()>;
     fn extend_by_lines(&mut self, up: usize, down: usize) -> Result<()>;
     fn filter_overlaps(&mut self) -> Result<()>;
 }
 
 impl MatchExtender for GrepResult {
+    fn collect_head(&mut self, n_lines: usize) -> Result<()> {
+        for hit in &mut self.hits {
+            hit.from = 0;
+            hit.n_lines = n_lines;
+        }
+
+        self.hits.sort();
+        self.hits.dedup();
+
+        Ok(())
+    }
+
     fn extend_to_another(&mut self, to: &GrepResult) -> Result<()> {
         let mut to = to.hits.iter().peekable();
 
@@ -130,11 +151,18 @@ impl Hunks {
     ) -> Result<GrepResult> {
         let mut matches = git.grep(pattern, grep_opts)?;
 
+        // move hits to the head if --head exists
+        if let Some(head) = &hunk_opts.head {
+            matches.collect_head(*head)?;
+        }
+
+        // extend to secondary hit locations
         if let Some(pattern) = &hunk_opts.to {
             let to = git.grep(pattern, grep_opts)?;
             matches.extend_to_another(&to)?;
         }
 
+        // lastly extend hits upward and downward
         if let Some(c) = hunk_opts.context {
             matches.extend_by_lines(c, c)?;
         } else {

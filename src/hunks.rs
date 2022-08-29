@@ -10,7 +10,7 @@ pub struct HunkOptions {
     #[clap(
         short = 'C',
         long,
-        name = "N",
+        value_name = "N",
         help = "Include <N> additional lines before and after matches"
     )]
     context: Option<usize>,
@@ -18,23 +18,23 @@ pub struct HunkOptions {
     #[clap(
         short = 'B',
         long = "before-context",
-        name = "B",
-        help = "Include <B> additional lines before matches"
+        value_name = "N",
+        help = "Include <N> additional lines before matches"
     )]
     before: Option<usize>,
 
     #[clap(
         short = 'A',
         long = "after-context",
-        name = "A",
-        help = "Include <A> additional lines after matches"
+        value_name = "N",
+        help = "Include <N> additional lines after matches"
     )]
     after: Option<usize>,
 
     #[clap(
         long = "to",
-        name = "TO",
-        help = "Extend match downward until the first hit of TO"
+        value_name = "PATTERN",
+        help = "Extend match downward until the first hit of PATTERN"
     )]
     to: Option<String>,
 }

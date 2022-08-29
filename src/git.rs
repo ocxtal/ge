@@ -42,6 +42,7 @@ pub struct GrepOptions {
 
     #[clap(
         long = "max-depth",
+        value_name = "N",
         help = "Maximum directory depth to search [default: inf]"
     )]
     max_depth: Option<usize>,
@@ -49,6 +50,7 @@ pub struct GrepOptions {
     #[clap(
         short = 'y',
         long,
+        value_name = "PATHSPEC",
         help = "Files to search (in pathspec; multiple allowed)"
     )]
     only: Vec<String>,
@@ -56,6 +58,7 @@ pub struct GrepOptions {
     #[clap(
         short = 'x',
         long,
+        value_name = "PATHSPEC",
         help = "Files to exclude in search (in pathspec; multiple allowed)"
     )]
     exclude: Vec<String>,

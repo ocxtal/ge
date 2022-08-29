@@ -1,6 +1,7 @@
 use crate::git::{Git, GrepOptions, GrepResult};
 use anyhow::Result;
 use clap::Parser;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::ops::Range;
@@ -40,6 +41,20 @@ pub struct HunkOptions {
     head: Option<usize>,
 
     #[clap(
+        long = "with",
+        value_name = "PATTERN",
+        help = "Filter out files that don't have the PATTERN"
+    )]
+    with: Option<String>,
+
+    #[clap(
+        long = "without",
+        value_name = "PATTERN",
+        help = "Filter out files that have the PATTERN"
+    )]
+    without: Option<String>,
+
+    #[clap(
         long = "to",
         value_name = "PATTERN",
         help = "Extend match downward until the first hit of PATTERN"
@@ -48,6 +63,7 @@ pub struct HunkOptions {
 }
 
 trait MatchExtender {
+    fn filter_files(&mut self, secondary: &GrepResult, invert: bool) -> Result<()>;
     fn collect_head(&mut self, n_lines: usize) -> Result<()>;
     fn extend_to_another(&mut self, to: &GrepResult) -> Result<()>;
     fn extend_by_lines(&mut self, up: usize, down: usize) -> Result<()>;
@@ -55,6 +71,23 @@ trait MatchExtender {
 }
 
 impl MatchExtender for GrepResult {
+    fn filter_files(&mut self, secondary: &GrepResult, invert: bool) -> Result<()> {
+        let file_ids: HashSet<_> = secondary.files.iter().map(|x| x.to_string()).collect();
+        self.hits = self
+            .hits
+            .iter()
+            .filter_map(|x| {
+                if invert ^ file_ids.get(&self.files[x.file_id]).is_some() {
+                    Some(*x)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Ok(())
+    }
+
     fn collect_head(&mut self, n_lines: usize) -> Result<()> {
         for hit in &mut self.hits {
             hit.from = 0;
@@ -150,6 +183,17 @@ impl Hunks {
         hunk_opts: &HunkOptions,
     ) -> Result<GrepResult> {
         let mut matches = git.grep(pattern, grep_opts)?;
+
+        // first filter files out
+        if let Some(pattern) = &hunk_opts.with {
+            let with = git.grep(pattern, grep_opts)?;
+            matches.filter_files(&with, false)?;
+        }
+
+        if let Some(pattern) = &hunk_opts.without {
+            let without = git.grep(pattern, grep_opts)?;
+            matches.filter_files(&without, true)?;
+        }
 
         // move hits to the head if --head exists
         if let Some(head) = &hunk_opts.head {
@@ -351,5 +395,22 @@ mod tests {
         assert_eq!(hunks.hunks.len(), 1);
         assert_eq!(hunks.hunks[0].1, 0);
         assert_eq!(hunks.hunks[0].2.len(), 3);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge --with fn")).unwrap();
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 2);
+        assert_eq!(hunks.hunks[0].2.len(), 1);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge --with xyzxyz")).unwrap();
+        assert_eq!(hunks.hunks.len(), 0);
+
+        let hunks = Hunks::collect(&git, "assert", &grep_opts, opts!("ge --without fn")).unwrap();
+        assert_eq!(hunks.hunks.len(), 0);
+
+        let hunks =
+            Hunks::collect(&git, "assert", &grep_opts, opts!("ge --without xyzxyz")).unwrap();
+        assert_eq!(hunks.hunks.len(), 1);
+        assert_eq!(hunks.hunks[0].1, 2);
+        assert_eq!(hunks.hunks[0].2.len(), 1);
     }
 }

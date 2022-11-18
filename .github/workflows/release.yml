@@ -4,7 +4,7 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+"
 jobs:
   stable-x86_64-unknown-linux-gnu:
-    name: stable-x86_64-unknown-linux-gnu
+    name: stable-x86_64-unknown-linux-musl
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -17,18 +17,18 @@ jobs:
         name: Run cargo build --release
         with:
           command: build
-          args: --target x86_64-unknown-linux-gnu --release
+          args: --target x86_64-unknown-linux-musl --release
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
       - name: Create a tarball
-        run: cp target/x86_64-unknown-linux-gnu/release/ge . && tar cf ge-stable-x86_64-unknown-linux-gnu.tar.gz ge && rm ge
+        run: cp target/x86_64-unknown-linux-musl/release/ge . && tar cf ge-stable-x86_64-unknown-linux-musl.tar.gz ge && rm ge
       - uses: svenstaro/upload-release-action@v2
         name: Upload binaries to release
         with:
-          file: ge-stable-x86_64-unknown-linux-gnu.tar.gz
+          file: ge-stable-x86_64-unknown-linux-musl.tar.gz
 
   stable-aarch64-unknown-linux-gnu:
-    name: stable-aarch64-unknown-linux-gnu
+    name: stable-aarch64-unknown-linux-musl
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -36,7 +36,7 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          target: aarch64-unknown-linux-gnu
+          target: aarch64-unknown-linux-musl
           override: true
       - uses: actions-rs/cargo@v1
         name: Install cargo-cross
@@ -48,12 +48,12 @@ jobs:
         with:
           use-cross: true
           command: build
-          args: --target aarch64-unknown-linux-gnu --release
+          args: --target aarch64-unknown-linux-musl --release
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
       - name: Create a tarball
-        run: cp target/aarch64-unknown-linux-gnu/release/ge . && tar cf ge-stable-aarch64-unknown-linux-gnu.tar.gz ge && rm ge
+        run: cp target/aarch64-unknown-linux-musl/release/ge . && tar cf ge-stable-aarch64-unknown-linux-musl.tar.gz ge && rm ge
       - uses: svenstaro/upload-release-action@v2
         name: Upload binaries to release
         with:
-          file: ge-stable-aarch64-unknown-linux-gnu.tar.gz
+          file: ge-stable-aarch64-unknown-linux-musl.tar.gz

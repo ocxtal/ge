@@ -3,7 +3,7 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
 jobs:
-  stable-x86_64-unknown-linux-gnu:
+  stable-x86_64-unknown-linux-musl:
     name: stable-x86_64-unknown-linux-musl
     runs-on: ubuntu-latest
     steps:
@@ -14,8 +14,14 @@ jobs:
           toolchain: stable
           override: true
       - uses: actions-rs/cargo@v1
+        name: Install cargo-cross
+        with:
+          use-cross: true
+          command: clean
+      - uses: actions-rs/cargo@v1
         name: Run cargo build --release
         with:
+          use-cross: true
           command: build
           args: --target x86_64-unknown-linux-musl --release
         env:
@@ -27,7 +33,7 @@ jobs:
         with:
           file: ge-stable-x86_64-unknown-linux-musl.tar.gz
 
-  stable-aarch64-unknown-linux-gnu:
+  stable-aarch64-unknown-linux-musl:
     name: stable-aarch64-unknown-linux-musl
     runs-on: ubuntu-latest
     steps:

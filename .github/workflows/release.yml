@@ -22,7 +22,7 @@ jobs:
         name: Upload binaries to release
         with:
           file: target/release/ge
-          asset_name: ge-amd64-linux-stable
+          asset_name: amd64/ge
 
   aarch64-linux-stable:
     name: aarch64-linux-stable
@@ -45,4 +45,4 @@ jobs:
         name: Upload binaries to release
         with:
           file: target/aarch64-unknown-linux-gnu/release/ge
-          asset_name: ge-aarch64-linux-stable
+          asset_name: aarch64/ge

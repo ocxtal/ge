@@ -64,3 +64,28 @@ jobs:
         name: Upload binaries to release
         with:
           file: ge-stable-aarch64-unknown-linux-musl.tar.gz
+
+  stable-x86_64-apple-darwin:
+    name: stable-x86_64-apple-darwin
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: x86_64-apple-darwin
+          override: true
+      - uses: actions-rs/cargo@v1
+        name: Run cargo build --release
+        with:
+          command: build
+          args: --target x86_64-apple-darwin --release
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static"
+      - name: Create a tarball
+        run: cp target/x86_64-apple-darwin/release/ge . && tar cf ge-stable-x86_64-apple-darwin.tar.gz ge && rm ge
+      - uses: svenstaro/upload-release-action@v2
+        name: Upload binaries to release
+        with:
+          file: ge-stable-x86_64-apple-darwin.tar.gz

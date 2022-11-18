@@ -81,8 +81,6 @@ jobs:
         with:
           command: build
           args: --target x86_64-apple-darwin --release
-        env:
-          RUSTFLAGS: "-C target-feature=+crt-static"
       - name: Create a tarball
         run: cp target/x86_64-apple-darwin/release/ge . && tar cf ge-stable-x86_64-apple-darwin.tar.gz ge && rm ge
       - uses: svenstaro/upload-release-action@v2

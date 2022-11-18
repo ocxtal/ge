@@ -39,7 +39,7 @@ impl Editor {
 
     fn exists(editor: &str) -> bool {
         let output = Command::new("/bin/sh")
-            .args(&["-c", &format!("command -v {}", editor)])
+            .args(["-c", &format!("command -v {}", editor)])
             .output();
         if output.is_err() {
             return false;
@@ -54,7 +54,7 @@ impl Editor {
             return false;
         }
 
-        let output = Command::new(editor).args(&["--version"]).output();
+        let output = Command::new(editor).args(["--version"]).output();
         if output.is_err() {
             return false;
         }

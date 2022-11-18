@@ -65,7 +65,7 @@ impl Git {
     pub fn new() -> Result<Self> {
         // check the availability of the git command
         let output = Command::new("git")
-            .args(&["--version"])
+            .args(["--version"])
             .output()
             .context("\"git\" command not found.")?;
         assert!(output.status.success());
@@ -148,7 +148,7 @@ impl Git {
 
     pub fn apply(&self, patch: &str) -> Result<()> {
         let mut apply = Command::new("git")
-            .args(&["apply", "--unidiff-zero", "-"])
+            .args(["apply", "--unidiff-zero", "-"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()

@@ -3,8 +3,8 @@ on:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
 jobs:
-  amd64-linux-stable:
-    name: amd64-linux-stable
+  stable-x86_64-unknown-linux-gnu:
+    name: stable-x86_64-unknown-linux-gnu
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -21,14 +21,14 @@ jobs:
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
       - name: Create a tarball
-        run: cp target/release/ge . && tar cf ge-amd64-linux.tar.gz ge && rm ge
+        run: cp target/x86_64-unknown-linux-gnu/release/ge . && tar cf ge-stable-x86_64-unknown-linux-gnu.tar.gz ge && rm ge
       - uses: svenstaro/upload-release-action@v2
         name: Upload binaries to release
         with:
-          file: ge-amd64-linux.tar.gz
+          file: ge-stable-x86_64-unknown-linux-gnu.tar.gz
 
-  aarch64-linux-stable:
-    name: aarch64-linux-stable
+  stable-aarch64-unknown-linux-gnu:
+    name: stable-aarch64-unknown-linux-gnu
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -47,8 +47,8 @@ jobs:
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
       - name: Create a tarball
-        run: cp target/aarch64-unknown-linux-gnu/release/ge . && tar cf ge-aarch64-linux.tar.gz ge && rm ge
+        run: cp target/aarch64-unknown-linux-gnu/release/ge . && tar cf ge-stable-aarch64-unknown-linux-gnu.tar.gz ge && rm ge
       - uses: svenstaro/upload-release-action@v2
         name: Upload binaries to release
         with:
-          file: ge-aarch64-linux.tar.gz
+          file: ge-stable-aarch64-unknown-linux-gnu.tar.gz

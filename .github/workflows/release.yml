@@ -39,6 +39,11 @@ jobs:
           target: aarch64-unknown-linux-gnu
           override: true
       - uses: actions-rs/cargo@v1
+        name: Install cargo-cross
+        with:
+          use-cross: true
+          command: clean
+      - uses: actions-rs/cargo@v1
         name: Run cargo build --release
         with:
           use-cross: true

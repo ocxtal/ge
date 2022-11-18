@@ -21,7 +21,7 @@ jobs:
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
       - name: Create a tarball
-        run: cp target/release/ge . && tar cf ge ge-amd64-linux.tar.gz && rm ge
+        run: cp target/release/ge . && tar cf ge-amd64-linux.tar.gz ge && rm ge
       - uses: svenstaro/upload-release-action@v2
         name: Upload binaries to release
         with:
@@ -47,7 +47,7 @@ jobs:
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
       - name: Create a tarball
-        run: cp target/aarch64-unknown-linux-gnu/release/ge . && tar cf ge ge-aarch64-linux.tar.gz && rm ge
+        run: cp target/aarch64-unknown-linux-gnu/release/ge . && tar cf ge-aarch64-linux.tar.gz ge && rm ge
       - uses: svenstaro/upload-release-action@v2
         name: Upload binaries to release
         with:

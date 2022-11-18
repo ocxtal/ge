@@ -18,11 +18,15 @@ jobs:
         with:
           command: build
           args: --release
+      - name: Create a tarball
+        run:
+          - cp target/release/ge .
+          - tar cf ge ge-amd64-linux.tar.gz
+          - rm ge
       - uses: svenstaro/upload-release-action@v2
         name: Upload binaries to release
         with:
-          file: target/release/ge
-          asset_name: amd64/ge
+          file: ge-amd64-linux.tar.gz
 
   aarch64-linux-stable:
     name: aarch64-linux-stable
@@ -41,8 +45,12 @@ jobs:
           use-cross: true
           command: build
           args: --target aarch64-unknown-linux-gnu --release
+      - name: Create a tarball
+        run:
+          - cp target/aarch64-unknown-linux-gnu/release/ge .
+          - tar cf ge ge-aarch64-linux.tar.gz
+          - rm ge
       - uses: svenstaro/upload-release-action@v2
         name: Upload binaries to release
         with:
-          file: target/aarch64-unknown-linux-gnu/release/ge
-          asset_name: aarch64/ge
+          file: ge-aarch64-linux.tar.gz

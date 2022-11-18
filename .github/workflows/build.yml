@@ -2,8 +2,8 @@ on:
   pull_request:
     types: [opened, synchronize]
 jobs:
-  amd64-linux-stable:
-    name: amd64-linux-stable
+  stable-x86_64-unknown-linux-gnu:
+    name: stable-x86_64-unknown-linux-gnu
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -32,8 +32,8 @@ jobs:
         env:
           RUSTFLAGS: "-C target-cpu=native"
 
-  aarch64-linux-stable:
-    name: aarch64-linux-stable
+  stable-aarch64-unknown-linux-gnu:
+    name: stable-aarch64-unknown-linux-gnu
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

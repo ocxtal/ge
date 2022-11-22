@@ -1,12 +1,9 @@
 
 # ge − grep and edit git-tracked files in bulk
 
-**ge** is a tool to edit grep match locations all at once in a single editor pane. It allows us to make the most of the features of modern editors, like multi-cursor editing and arbitrary undo-and-redoes, without losing the flexibility and handiness of the command-line grep utilities. It is especially powerful if the target files have properties like:
+**ge** is a tool to edit grep match locations all at once in a single editor pane. It allows us to make the most of the features of modern editors, like multi-cursor editing and arbitrary undo-and-redoes, without losing the flexibility and handiness of the command-line grep utilities.
 
-* Each edit location consists of multiple lines
-* And these lines are not the same
-
-Such situations are prevalent when maintaining a large codebase; for example:
+ge is especially powerful when we edit almost identical but slightly different code fragments spread across multiple files. It is quite common when maintaining a large codebase; for example:
 
 * Reordering or extending arguments of a function that is used all around the project
   * Caller sides sometimes have different linebreak positions, indentation levels, and/or names for the arguments

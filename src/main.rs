@@ -61,7 +61,6 @@ fn arg_or_env_or_default(arg: &Option<String>, env: &str, default: &str) -> Stri
 }
 
 fn main() -> Result<()> {
-    // comment
     let args = Args::parse();
 
     // create git object, run git-grep to collect matches

@@ -16,6 +16,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+            ~/.rustup/
             target/
           key: stable-x86_64-unknown-linux-gnu-${{ hashFiles('**/Cargo.lock') }}
 
@@ -60,6 +61,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+            ~/.rustup/
             target/
           key: stable-aarch64-unknown-linux-gnu-${{ hashFiles('**/Cargo.lock') }}
 

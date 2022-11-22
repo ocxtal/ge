@@ -8,12 +8,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+
+      - uses: actions/cache@v3
+        id: cache-cargo
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - if: steps.cache-cargo.outputs.cache-hit != 'true'
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - run: rustup component add rustfmt clippy
+      - if: steps.cache-cargo.outputs.cache-hit != 'true'
+        run: rustup component add rustfmt clippy
+
       - uses: actions-rs/cargo@v1
         name: Run cargo fmt --all -- --check
         with:

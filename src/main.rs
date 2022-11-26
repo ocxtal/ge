@@ -15,7 +15,7 @@ use crate::pager::Pager;
 use crate::patch::{HalfDiffConfig, PatchBuilder};
 
 #[derive(Debug, Parser)]
-#[clap(author, version = "0.0.1", about = "grep and edit git-tracked files in bulk", long_about = None)]
+#[clap(author, version = "0.0.2", about = "grep and edit git-tracked files in bulk", long_about = None)]
 struct Args {
     #[clap(help = "Pattern to search")]
     pattern: String,

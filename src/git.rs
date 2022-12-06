@@ -180,7 +180,7 @@ pub struct GrepHit {
     pub file_id: usize,
     pub from: usize,
     pub n_lines: usize,
-    pub level: usize,   // the number of leading space and tabs of the line
+    pub level: usize, // the number of leading space and tabs of the line
 }
 
 #[derive(Debug)]
@@ -291,7 +291,9 @@ mod tests {
         let output = git.grep("fox", true, opts!("ge -y tests/*.txt")).unwrap();
         assert_eq!(output.hits.len(), 2);
 
-        let output = git.grep("fox", true, opts!("ge -x tests/*.txt -x src")).unwrap();
+        let output = git
+            .grep("fox", true, opts!("ge -x tests/*.txt -x src"))
+            .unwrap();
         assert_eq!(output.hits.len(), 0);
 
         let output = git.grep("fox", true, opts!("ge --max-depth 0")).unwrap();
@@ -300,13 +302,17 @@ mod tests {
         let output = git.grep("fox", true, opts!("ge --max-depth 1")).unwrap();
         assert!(output.hits.len() >= 2);
 
-        let output = git.grep("FOX", true, opts!("ge -y tests/*.txt -i")).unwrap();
+        let output = git
+            .grep("FOX", true, opts!("ge -y tests/*.txt -i"))
+            .unwrap();
         assert_eq!(output.hits.len(), 2);
 
         let output = git.grep("quic", true, opts!("ge -y tests/*.txt")).unwrap();
         assert_eq!(output.hits.len(), 1);
 
-        let output = git.grep("quic", true, opts!("ge -y tests/*.txt -w")).unwrap();
+        let output = git
+            .grep("quic", true, opts!("ge -y tests/*.txt -w"))
+            .unwrap();
         assert_eq!(output.hits.len(), 0);
 
         // --mode
@@ -325,12 +331,20 @@ mod tests {
         assert!(output.hits.len() > 0);
 
         let output = git
-            .grep("(fox)|(dog)", true, opts!("ge --mode=extended -y tests/*.txt"))
+            .grep(
+                "(fox)|(dog)",
+                true,
+                opts!("ge --mode=extended -y tests/*.txt"),
+            )
             .unwrap();
         assert!(output.hits.len() > 0);
 
         let output = git
-            .grep("(fox)|(dog)", true, opts!("ge --mode=extended -y tests/*.txt"))
+            .grep(
+                "(fox)|(dog)",
+                true,
+                opts!("ge --mode=extended -y tests/*.txt"),
+            )
             .unwrap();
         assert!(output.hits.len() > 0);
 

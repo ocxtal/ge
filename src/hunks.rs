@@ -108,7 +108,9 @@ impl MatchExtender for GrepResult {
             // note: files (filenames) are sorted in the ascending order so it's safe to
             // iterate this loop with the >= comparator.
             while let Some(x) = it.peek() {
-                if (&to.files[x.file_id], x.from) >= (&self.files[hit.file_id], hit.from) && x.level == hit.level {
+                if (&to.files[x.file_id], x.from) >= (&self.files[hit.file_id], hit.from)
+                    && x.level == hit.level
+                {
                     break;
                 }
                 it.next().unwrap();
@@ -118,7 +120,7 @@ impl MatchExtender for GrepResult {
                 break;
             }
             let next = it.peek().unwrap();
-            if &to.files[next.file_id] != &self.files[hit.file_id] {
+            if to.files[next.file_id] != self.files[hit.file_id] {
                 continue;
             }
 

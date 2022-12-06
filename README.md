@@ -3,27 +3,44 @@
 
 **ge** is a tool to edit grep match locations all at once in a single editor pane. It allows us to make the most of the features of modern editors, like multi-cursor editing and arbitrary undo-and-redoes, without losing the flexibility and handiness of the command-line grep utilities.
 
-ge is especially powerful when we edit almost identical but slightly different code fragments spread across multiple files. It is quite common when maintaining a large codebase; for example:
+ge is especially powerful when we edit almost identical but slightly different code fragments spread across multiple files. Such situations are quite common when maintaining a large codebase; for example:
 
-* Reordering or extending arguments of a function that is used all around the project
-  * Caller sides sometimes have different linebreak positions, indentation levels, and/or names for the arguments
-* Modifying configuration files that are almost the same but different in details
-  * In recent days we have to maintain CI/CD-related files for { x86_64, aarch64 } x { Linux, Windows, macOS }
-* Renaming a field of a struct defined in some serialization schema
-  * The struct is used in different languages like JavaScript and Go
+* Reordering or extending arguments of a function that is used all around the project.
+  * Caller sides sometimes have different linebreak positions, indentation levels, and/or names for the arguments.
+* Modifying configuration files that are almost the same but different in detail.
+  * In recent days we have to maintain CI/CD-related files for { x86_64, aarch64 } x { Linux, Windows, macOS }.
+* Renaming a field of a struct defined in some serialization schema.
+  * The struct is used in different languages like JavaScript and Go.
 
 ![example](./figs/example.png)
 
 *Figure 1. Editing two `split_whitespace`s in different files at once, which are found with the keyword `split`.*
 
+## How it works
+
 ge performs the following four steps when invoked:
 
-* Queries the input word (can be in a regular expression) with **git grep**
+* Queries the input word (`PATTERN`; can be in a regular expression) with **git grep**
 * Composes a **"half diff"**
 * **Launches an editor** for users to edit the half diff and then waits for the user
 * Converts the edited half diff to a regular unified diff and feeds it to **git apply**
 
-## Using different editors
+## Usage
+
+```console
+$ ge --preview "pattern-of-interest"
+```
+
+* `--preview` (or `-p` in short) searches "pattern-of-interest" in your codebase and print hit locations; it works almost the same as command-line grep utilities.
+
+```console
+$ ge "pattern-of-interest"
+```
+
+* Without `--preview`, it will launch an editor with hit locations. After editing some lines, saving the contents, and exiting the editor, you'll find the codes are updated with the edits you made.
+  * See the section ["Half diffs explained"](#half-diffs-explained) for the structure of contents loaded to the editor.
+
+### Using different editors
 
 You can use any editor that can be launched from the terminal.
 
@@ -39,33 +56,43 @@ You can use any editor that can be launched from the terminal.
 
 ge recognizes the environment variable `EDITOR` as well. Note that the `--editor` option takes precedence over the environment variable.
 
-## Arguments and options
+### Complete list of arguments
 
+```console
+$ ge --help
+ge 0.0.2
+grep and edit git-tracked files in bulk
+
+USAGE:
+    ge [OPTIONS] <PATTERN>
+
+ARGS:
+    <PATTERN>    Pattern to search
+
+OPTIONS:
+    -A, --after-context <N>     Include <N> additional lines after matches
+    -B, --before-context <N>    Include <N> additional lines before matches
+    -C, --context <N>           Include <N> additional lines before and after matches
+    -e, --editor <EDITOR>       Use <EDITOR> to edit matches [default: vi]
+    -h, --help                  Print help information
+    -H, --head <N>              Edit <N> lines from the head of files that have matches
+        --header <MARKER>       Use <MARKER> for header markers [default: +++]
+        --hunk <MARKER>         Use <MARKER> for hunk markers [default: @@]
+    -i, --ignore-case           Case-insensitive search
+    -M, --mode <MODE>           Regex mode [default: basic] [possible values: fixed, extended,
+                                basic, pcre]
+        --max-depth <N>         Maximum directory depth to search [default: inf]
+    -p, --preview               Show matches and exit
+        --pager <PAGER>         Use <PAGER> to preview matches [default: less -F]
+        --to <PATTERN>          Extend match downward until the first hit of PATTERN
+    -V, --version               Print version information
+    -w, --word-regexp           Match at word boundaries
+    -W, --function-context      Extend match to the entire function
+        --with <PATTERN>        Filter out files that don't have the PATTERN
+        --without <PATTERN>     Filter out files that have the PATTERN
+    -x, --exclude <PATHSPEC>    Files to exclude in search (in pathspec; multiple allowed)
+    -y, --only <PATHSPEC>       Files to search (in pathspec; multiple allowed)
 ```
-ge [--editor=EDITOR] [GREP RANGE OPTIONS] PATTERN
-```
-
-It has one mandatory positional argument:
-
-* `PATTERN` to search with **git grep**. It can be a regular expression (See the `--mode` option for the details).
-
-Some options control the ranges to extract with grep:
-
-* `--after-context=N` adds N lines after matches
-* `--before-context=N` adds N lines before matches
-* `--context=N` adds N lines before and after matches
-* `--function-context` extends every match to the entire function
-* `--to=PATTERN` extends matches downward until the first hit of `PATTERN`
-* `--with=PATTERN` leaves files that have the `PATTERN`
-* `--without=PATTERN` filters out files that have the `PATTERN`
-
-And some options to control the output:
-
-* `--editor=EDITOR` overrides the editor to use. The default is `vi`.
-* `--preview` only dumps half diffs if specified.
-* `--pager=PAGER` overrides the drain for the `--preview` mode. The default is `less -F`.
-
-It has more options such as `--header=HEADER` and `--hunk=HUNK`. See `ge --help` for the details of these extra options and the shorthand form of the basic options above.
 
 ## "Half diffs" explained
 
@@ -96,19 +123,36 @@ Half diff is a unified diff format with only the target lines. The original line
 
 ## Installation
 
+### Prebuilt binaries
+
+```console
+$ curl -OL https://github.com/ocxtal/ge/releases/download/0.0.2/ge-stable-x86_64-unknown-linux-musl.tar.gz
+$ tar xf ge-stable-x86_64-unknown-linux-musl.tar.gz
+  # `ge` is expanded at the current directory. Copy it anywhere you want. 
+$ ./ge --help
+```
+
+* [Linux x86\_64 (static binary)](https://github.com/ocxtal/ge/releases/download/0.0.2/ge-stable-x86_64-unknown-linux-musl.tar.gz)
+* [Linux aarch64 (static binary)](https://github.com/ocxtal/ge/releases/download/0.0.2/ge-stable-aarch64-unknown-linux-musl.tar.gz)
+* [macOS x86\_64](https://github.com/ocxtal/ge/releases/download/0.0.2/ge-stable-x86_64-apple-darwin.tar.gz)
+
+### From source
+
 [Rust toolchain](https://rustup.rs/) is required.
 
-```bash
-cargo install --git https://github.com/ocxtal/ge
+```console
+$ cargo install ge --git https://github.com/ocxtal/ge
+$ ge --help
 ```
 
 or
 
-```bash
-git clone https://github.com/ocxtal/ge.git
-cd ge
-cargo build --release
-# `ge` is built in `./target/release`. copy it anywhere you want.
+```console
+$ git clone https://github.com/ocxtal/ge.git
+$ cd ge
+$ cargo build --release
+  # `ge` is built in `./target/release`. Copy it anywhere you want.
+$ ./target/release/ge --help
 ```
 
 ## Notes

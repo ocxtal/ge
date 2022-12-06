@@ -185,16 +185,16 @@ impl Hunks {
         grep_opts: &GrepOptions,
         hunk_opts: &HunkOptions,
     ) -> Result<GrepResult> {
-        let mut matches = git.grep(pattern, grep_opts)?;
+        let mut matches = git.grep(pattern, true, grep_opts)?;
 
         // first filter files out
         if let Some(pattern) = &hunk_opts.with {
-            let with = git.grep(pattern, grep_opts)?;
+            let with = git.grep(pattern, false, grep_opts)?;
             matches.filter_files(&with, false)?;
         }
 
         if let Some(pattern) = &hunk_opts.without {
-            let without = git.grep(pattern, grep_opts)?;
+            let without = git.grep(pattern, false, grep_opts)?;
             matches.filter_files(&without, true)?;
         }
 
@@ -205,7 +205,7 @@ impl Hunks {
 
         // extend to secondary hit locations
         if let Some(pattern) = &hunk_opts.to {
-            let to = git.grep(pattern, grep_opts)?;
+            let to = git.grep(pattern, false, grep_opts)?;
             matches.extend_to_another(&to)?;
         }
 

@@ -95,7 +95,7 @@ impl Git {
         }
     }
 
-    pub fn grep(&self, pattern: &str, opts: &GrepOptions) -> Result<GrepResult> {
+    pub fn grep(&self, pattern: &str, merge: bool, opts: &GrepOptions) -> Result<GrepResult> {
         // compose arguments
         let mut args = vec![
             "grep".to_string(),
@@ -143,7 +143,7 @@ impl Git {
             "failed to interpret the output of \"git grep\" as a UTF-8 string. aborting.",
         )?;
 
-        GrepResult::from_raw(&output)
+        GrepResult::from_raw(&output, merge)
     }
 
     pub fn apply(&self, patch: &str) -> Result<()> {
@@ -180,6 +180,7 @@ pub struct GrepHit {
     pub file_id: usize,
     pub from: usize,
     pub n_lines: usize,
+    pub level: usize, // the number of leading space and tabs of the line
 }
 
 #[derive(Debug)]
@@ -189,7 +190,7 @@ pub struct GrepResult {
 }
 
 impl GrepResult {
-    fn parse_line(line: &str) -> Result<(&str, usize)> {
+    fn parse_line(line: &str) -> Result<(&str, usize, usize)> {
         // find two '\0's
         let pos = line.find('\0').with_context(|| {
             format!(
@@ -206,34 +207,45 @@ impl GrepResult {
             )
         })?;
 
-        let (at, _) = rem[1..].split_at(pos);
+        let (at, line) = rem[1..].split_at(pos);
         let at: usize = at
             .parse()
             .with_context(|| format!("broken grep line number: {}. aborting.", at))?;
         debug_assert!(at > 0);
 
-        Ok((filename, at - 1))
+        // the number of leading space and tabs of the line
+        let line = &line[1..];
+        let level = line.len() - line.trim_start().len();
+
+        Ok((filename, at - 1, level))
     }
 
-    fn from_raw(raw: &str) -> Result<GrepResult> {
+    fn from_raw(raw: &str, merge: bool) -> Result<GrepResult> {
         let mut bin = GrepResult {
             files: Vec::new(),
             hits: Vec::new(),
         };
 
-        for line in raw.trim().lines() {
+        let parse = |line| {
             if line == "--" {
-                continue;
+                return None;
             }
+            let ret = Self::parse_line(line).unwrap();
+            Some(ret)
+        };
+        let mut lines: Vec<_> = raw.trim().lines().filter_map(parse).collect();
 
-            let (filename, at) = Self::parse_line(line)?;
+        // sort by (filename, linenumber) tuple so that filenames are in the dictionary ascending order
+        lines.sort();
 
+        for (filename, at, level) in lines {
             if bin.files.is_empty() || bin.files.last().unwrap() != filename {
                 bin.files.push(filename.to_string());
             }
 
             let file_id = bin.files.len() - 1;
-            if let Some(last_hit) = bin.hits.last_mut() {
+            if merge && bin.hits.last_mut().is_some() {
+                let last_hit = bin.hits.last_mut().unwrap();
                 if last_hit.file_id == file_id && last_hit.from + last_hit.n_lines == at {
                     last_hit.n_lines += 1;
                     continue;
@@ -244,6 +256,7 @@ impl GrepResult {
                 file_id,
                 from: at,
                 n_lines: 1,
+                level,
             });
         }
         Ok(bin)
@@ -272,61 +285,76 @@ mod tests {
         let git = Git::new().unwrap();
 
         // "ge" is a placeholder for a command name
-        let output = git.grep("fox", opts!("ge")).unwrap();
+        let output = git.grep("fox", true, opts!("ge")).unwrap();
         assert!(output.hits.len() >= 2);
 
-        let output = git.grep("fox", opts!("ge -y tests/*.txt")).unwrap();
+        let output = git.grep("fox", true, opts!("ge -y tests/*.txt")).unwrap();
         assert_eq!(output.hits.len(), 2);
 
-        let output = git.grep("fox", opts!("ge -x tests/*.txt -x src")).unwrap();
+        let output = git
+            .grep("fox", true, opts!("ge -x tests/*.txt -x src"))
+            .unwrap();
         assert_eq!(output.hits.len(), 0);
 
-        let output = git.grep("fox", opts!("ge --max-depth 0")).unwrap();
+        let output = git.grep("fox", true, opts!("ge --max-depth 0")).unwrap();
         assert_eq!(output.hits.len(), 0);
 
-        let output = git.grep("fox", opts!("ge --max-depth 1")).unwrap();
+        let output = git.grep("fox", true, opts!("ge --max-depth 1")).unwrap();
         assert!(output.hits.len() >= 2);
 
-        let output = git.grep("FOX", opts!("ge -y tests/*.txt -i")).unwrap();
+        let output = git
+            .grep("FOX", true, opts!("ge -y tests/*.txt -i"))
+            .unwrap();
         assert_eq!(output.hits.len(), 2);
 
-        let output = git.grep("quic", opts!("ge -y tests/*.txt")).unwrap();
+        let output = git.grep("quic", true, opts!("ge -y tests/*.txt")).unwrap();
         assert_eq!(output.hits.len(), 1);
 
-        let output = git.grep("quic", opts!("ge -y tests/*.txt -w")).unwrap();
+        let output = git
+            .grep("quic", true, opts!("ge -y tests/*.txt -w"))
+            .unwrap();
         assert_eq!(output.hits.len(), 0);
 
         // --mode
         let output = git
-            .grep("(fox)|(dog)", opts!("ge --mode=basic -y tests/*.txt"))
+            .grep("(fox)|(dog)", true, opts!("ge --mode=basic -y tests/*.txt"))
             .unwrap();
         assert_eq!(output.hits.len(), 0);
 
         let output = git
             .grep(
                 "\\(fox\\)\\|\\(dog\\)",
+                true,
                 opts!("ge --mode=basic -y tests/*.txt"),
             )
             .unwrap();
         assert!(output.hits.len() > 0);
 
         let output = git
-            .grep("(fox)|(dog)", opts!("ge --mode=extended -y tests/*.txt"))
+            .grep(
+                "(fox)|(dog)",
+                true,
+                opts!("ge --mode=extended -y tests/*.txt"),
+            )
             .unwrap();
         assert!(output.hits.len() > 0);
 
         let output = git
-            .grep("(fox)|(dog)", opts!("ge --mode=extended -y tests/*.txt"))
+            .grep(
+                "(fox)|(dog)",
+                true,
+                opts!("ge --mode=extended -y tests/*.txt"),
+            )
             .unwrap();
         assert!(output.hits.len() > 0);
 
         // --function-context
-        let output = git.grep("assert", opts!("ge -y tests/*.rs")).unwrap();
+        let output = git.grep("assert", true, opts!("ge -y tests/*.rs")).unwrap();
         assert_eq!(output.hits.len(), 1);
         assert_eq!(output.hits[0].n_lines, 1);
 
         let output = git
-            .grep("assert", opts!("ge --function-context -y tests/*.rs"))
+            .grep("assert", true, opts!("ge --function-context -y tests/*.rs"))
             .unwrap();
         assert_eq!(output.hits.len(), 1);
         assert!(output.hits[0].n_lines >= 3); // workaround for old versions of git that excludes `#[test]`

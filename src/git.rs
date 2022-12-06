@@ -180,6 +180,7 @@ pub struct GrepHit {
     pub file_id: usize,
     pub from: usize,
     pub n_lines: usize,
+    pub level: usize,   // the number of leading space and tabs of the line
 }
 
 #[derive(Debug)]
@@ -189,7 +190,7 @@ pub struct GrepResult {
 }
 
 impl GrepResult {
-    fn parse_line(line: &str) -> Result<(&str, usize)> {
+    fn parse_line(line: &str) -> Result<(&str, usize, usize)> {
         // find two '\0's
         let pos = line.find('\0').with_context(|| {
             format!(
@@ -206,13 +207,17 @@ impl GrepResult {
             )
         })?;
 
-        let (at, _) = rem[1..].split_at(pos);
+        let (at, line) = rem[1..].split_at(pos);
         let at: usize = at
             .parse()
             .with_context(|| format!("broken grep line number: {}. aborting.", at))?;
         debug_assert!(at > 0);
 
-        Ok((filename, at - 1))
+        // the number of leading space and tabs of the line
+        let line = &line[1..];
+        let level = line.len() - line.trim_start().len();
+
+        Ok((filename, at - 1, level))
     }
 
     fn from_raw(raw: &str) -> Result<GrepResult> {
@@ -221,29 +226,29 @@ impl GrepResult {
             hits: Vec::new(),
         };
 
-        for line in raw.trim().lines() {
+        let parse = |line| {
             if line == "--" {
-                continue;
+                return None;
             }
+            let ret = Self::parse_line(line).unwrap();
+            Some(ret)
+        };
+        let mut lines: Vec<_> = raw.trim().lines().filter_map(parse).collect();
 
-            let (filename, at) = Self::parse_line(line)?;
+        // sort by (filename, linenumber) tuple so that filenames are in the dictionary ascending order
+        lines.sort();
 
+        for (filename, at, level) in lines {
             if bin.files.is_empty() || bin.files.last().unwrap() != filename {
                 bin.files.push(filename.to_string());
             }
 
             let file_id = bin.files.len() - 1;
-            if let Some(last_hit) = bin.hits.last_mut() {
-                if last_hit.file_id == file_id && last_hit.from + last_hit.n_lines == at {
-                    last_hit.n_lines += 1;
-                    continue;
-                }
-            }
-
             bin.hits.push(GrepHit {
                 file_id,
                 from: at,
                 n_lines: 1,
+                level,
             });
         }
         Ok(bin)

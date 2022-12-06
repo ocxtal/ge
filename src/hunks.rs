@@ -57,7 +57,7 @@ pub struct HunkOptions {
     #[clap(
         long = "to",
         value_name = "PATTERN",
-        help = "Extend match downward until the first hit of PATTERN"
+        help = "Extend match downward until the first hit of PATTERN with the same indentation level"
     )]
     to: Option<String>,
 }
@@ -101,25 +101,28 @@ impl MatchExtender for GrepResult {
     }
 
     fn extend_to_another(&mut self, to: &GrepResult) -> Result<()> {
-        let mut to = to.hits.iter().peekable();
+        let mut it = to.hits.iter().peekable();
 
         for hit in &mut self.hits {
             // skip_while
-            while let Some(x) = to.peek() {
-                if (x.file_id, x.from) >= (hit.file_id, hit.from) {
+            // note: files (filenames) are sorted in the ascending order so it's safe to
+            // iterate this loop with the >= comparator.
+            while let Some(x) = it.peek() {
+                if (&to.files[x.file_id], x.from) >= (&self.files[hit.file_id], hit.from) && x.level == hit.level {
                     break;
                 }
-                to.next().unwrap();
+                it.next().unwrap();
             }
 
-            if to.peek().is_none() {
+            if it.peek().is_none() {
                 break;
             }
-            if to.peek().unwrap().file_id != hit.file_id {
+            let next = it.peek().unwrap();
+            if &to.files[next.file_id] != &self.files[hit.file_id] {
                 continue;
             }
 
-            let next = to.next().unwrap();
+            let next = it.next().unwrap();
             hit.n_lines = next.from + next.n_lines - hit.from;
         }
         Ok(())

@@ -91,7 +91,7 @@ impl Git {
             args.push("--word-regexp".to_string());
         }
         if let Some(depth) = opts.max_depth {
-            args.push(format!("--max-depth={}", depth));
+            args.push(format!("--max-depth={depth}"));
         }
     }
 
@@ -130,7 +130,7 @@ impl Git {
                 .iter()
                 .flat_map(|x| x.split(',').collect::<Vec<_>>());
             for pattern in exclude {
-                args.push(format!(":!{}", pattern));
+                args.push(format!(":!{pattern}"));
             }
         }
 
@@ -194,23 +194,21 @@ impl GrepResult {
         // find two '\0's
         let pos = line.find('\0').with_context(|| {
             format!(
-                "failed to find filename-linenumber delimiter in {:?}. aborting.",
-                line
+                "failed to find filename-linenumber delimiter in {line:?}. aborting."
             )
         })?;
         let (filename, rem) = line.split_at(pos);
 
         let pos = rem[1..].find('\0').with_context(|| {
             format!(
-                "failed to find linenumber-body delimiter in {:?}. aborting.",
-                line
+                "failed to find linenumber-body delimiter in {line:?}. aborting."
             )
         })?;
 
         let (at, line) = rem[1..].split_at(pos);
         let at: usize = at
             .parse()
-            .with_context(|| format!("broken grep line number: {}. aborting.", at))?;
+            .with_context(|| format!("broken grep line number: {at}. aborting."))?;
         debug_assert!(at > 0);
 
         // the number of leading space and tabs of the line
@@ -328,7 +326,7 @@ mod tests {
                 opts!("ge --mode=basic -y tests/*.txt"),
             )
             .unwrap();
-        assert!(output.hits.len() > 0);
+        assert!(!output.hits.is_empty());
 
         let output = git
             .grep(
@@ -337,7 +335,7 @@ mod tests {
                 opts!("ge --mode=extended -y tests/*.txt"),
             )
             .unwrap();
-        assert!(output.hits.len() > 0);
+        assert!(!output.hits.is_empty());
 
         let output = git
             .grep(
@@ -346,7 +344,7 @@ mod tests {
                 opts!("ge --mode=extended -y tests/*.txt"),
             )
             .unwrap();
-        assert!(output.hits.len() > 0);
+        assert!(!output.hits.is_empty());
 
         // --function-context
         let output = git.grep("assert", true, opts!("ge -y tests/*.rs")).unwrap();

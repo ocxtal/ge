@@ -125,7 +125,7 @@ impl HunkAccumulator {
     }
 
     fn open_new_patch(&mut self, filename: &str) {
-        let header = format!("--- a/{}\n+++ b/{}\n", filename, filename);
+        let header = format!("--- a/{filename}\n+++ b/{filename}\n");
         self.header_len = header.len();
         self.buf = header;
     }
@@ -279,8 +279,7 @@ impl PatchBuilder {
                 let filename = l[self.header_marker.len()..].trim();
                 let id = self.files.get(filename).with_context(|| {
                     format!(
-                        "got an invalid filename {:?} in the edit result. aborting.",
-                        filename
+                        "got an invalid filename {filename:?} in the edit result. aborting."
                     )
                 })?;
 

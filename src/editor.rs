@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, Write};
 use std::process::Command;
 use tempfile::NamedTempFile;
 
@@ -39,7 +39,7 @@ impl Editor {
 
     fn exists(editor: &str) -> bool {
         let output = Command::new("/bin/sh")
-            .args(["-c", &format!("command -v {}", editor)])
+            .args(["-c", &format!("command -v {editor}")])
             .output();
         if output.is_err() {
             return false;
@@ -91,7 +91,7 @@ impl Editor {
 
         // seek to the head before reading the content...
         self.file
-            .seek(SeekFrom::Start(0))
+            .rewind()
             .context("failed to seek the tempfile. aborting.")?;
 
         Ok(())

@@ -193,16 +193,12 @@ impl GrepResult {
     fn parse_line(line: &str) -> Result<(&str, usize, usize)> {
         // find two '\0's
         let pos = line.find('\0').with_context(|| {
-            format!(
-                "failed to find filename-linenumber delimiter in {line:?}. aborting."
-            )
+            format!("failed to find filename-linenumber delimiter in {line:?}. aborting.")
         })?;
         let (filename, rem) = line.split_at(pos);
 
         let pos = rem[1..].find('\0').with_context(|| {
-            format!(
-                "failed to find linenumber-body delimiter in {line:?}. aborting."
-            )
+            format!("failed to find linenumber-body delimiter in {line:?}. aborting.")
         })?;
 
         let (at, line) = rem[1..].split_at(pos);

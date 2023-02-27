@@ -278,9 +278,7 @@ impl PatchBuilder {
 
                 let filename = l[self.header_marker.len()..].trim();
                 let id = self.files.get(filename).with_context(|| {
-                    format!(
-                        "got an invalid filename {filename:?} in the edit result. aborting."
-                    )
+                    format!("got an invalid filename {filename:?} in the edit result. aborting.")
                 })?;
 
                 hunks.open_new_patch(filename);

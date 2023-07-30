@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use atty::Stream;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::process::{Child, Command, Stdio};
 
 pub struct Pager {
@@ -12,7 +11,7 @@ pub struct Pager {
 impl Pager {
     pub fn new(pager: &str) -> Result<Self> {
         // bypass pager if piped to another command
-        if !atty::is(Stream::Stdout) {
+        if !std::io::stdout().is_terminal() {
             return Ok(Pager {
                 pager: None,
                 drain: Box::new(std::io::stdout()),

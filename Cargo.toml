@@ -4,7 +4,6 @@ version = "0.0.2"
 edition = "2021"
 
 [dependencies]
-atty = "0.2"
 anyhow = "1.0"
 clap = { version = "4.3", features = ["derive"] }
 tempfile = "3.7"

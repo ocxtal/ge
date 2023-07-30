@@ -1,11 +1,11 @@
 use anyhow::{anyhow, Context, Result};
-use clap::{ArgEnum, Parser};
+use clap::{Parser, ValueEnum};
 use std::io::Write;
 use std::process::{Command, Stdio};
 
 pub struct Git;
 
-#[derive(Copy, Clone, Debug, ArgEnum)]
+#[derive(Copy, Clone, Debug, ValueEnum)]
 enum GrepMode {
     Fixed,
     Extended,
@@ -16,7 +16,7 @@ enum GrepMode {
 #[derive(Debug, Parser)]
 pub struct GrepOptions {
     #[clap(
-        arg_enum,
+        value_enum,
         short = 'M',
         long = "mode",
         default_value = "basic",

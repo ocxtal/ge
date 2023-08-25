@@ -24,30 +24,18 @@ jobs:
           key: stable-x86_64-unknown-linux-gnu-${{ hashFiles('**/Cargo.lock') }}
 
       - if: steps.cache-cargo.outputs.cache-hit != 'true'
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - if: steps.cache-cargo.outputs.cache-hit != 'true'
-        run: rustup component add rustfmt clippy
+        name: "Install tools"
+        run: |
+          rustup set profile minimal
+          rustup install stable
+          rustup override set stable
+          rustup component add rustfmt clippy
 
-      - uses: actions-rs/cargo@v1
-        name: cargo fmt
-        with:
-          command: fmt
-          args: --all -- --check
-      - uses: actions-rs/cargo@v1
-        name: cargo clippy
-        with:
-          command: clippy
-          args: -- -D warnings
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy -- -D warnings
         env:
           RUSTFLAGS: "-C target-cpu=native"
-      - uses: actions-rs/cargo@v1
-        name: cargo test
-        with:
-          command: test
+      - run: cargo test
         env:
           RUSTFLAGS: "-C target-cpu=native"
 
@@ -69,24 +57,18 @@ jobs:
           key: stable-aarch64-unknown-linux-gnu-${{ hashFiles('**/Cargo.lock') }}
 
       - if: steps.cache-cargo.outputs.cache-hit != 'true'
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: aarch64-unknown-linux-gnu
-          override: true
-      - if: steps.cache-cargo.outputs.cache-hit != 'true'
-        run: rustup component add rustfmt clippy
+        run: |
+          rustup set profile minimal
+          rustup install stable
+          rustup target add aarch64-unknown-linux-gnu
+          rustup toolchain install --target=aarch64-unknown-linux-gnu stable
+          rustup component add --toolchain stable clippy
 
-      - uses: actions-rs/cargo@v1
-        name: cargo clippy
-        with:
-          use-cross: true
-          command: clippy
-          args: --target aarch64-unknown-linux-gnu -- -D warnings
-      - uses: actions-rs/cargo@v1
-        name: cargo test
-        with:
-          use-cross: true
-          command: test
-          args: --target aarch64-unknown-linux-gnu
+      - run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu qemu-user-static
+
+      - run: cargo clippy --target aarch64-unknown-linux-gnu -- -D warnings
+        env:
+          RUSTFLAGS: "-C target-cpu=cortex-x2"
+      - run: cargo test --target aarch64-unknown-linux-gnu
+        env:
+          RUSTFLAGS: "-C target-cpu=cortex-x2"

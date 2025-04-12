@@ -72,14 +72,14 @@ fn main() -> Result<()> {
         header: args.header.as_deref(),
         hunk: args.hunk.as_deref(),
     };
-    let gen = PatchBuilder::from_hunks(config, hunks)?;
+    let builder = PatchBuilder::from_hunks(config, hunks)?;
 
     // convert the git-grep result (hit locations) into "halfdiff" that will be edited by the user
     if args.preview {
         let mut pager = Pager::new(&arg_or_env_or_default(&args.pager, "PAGER", "less -F"))?;
         {
             let mut writer = BufWriter::new(&mut pager);
-            gen.write_halfdiff(&mut writer)?;
+            builder.write_halfdiff(&mut writer)?;
             writer.flush()?;
         }
         pager.wait()?;
@@ -90,7 +90,7 @@ fn main() -> Result<()> {
     let mut editor = Editor::new(&arg_or_env_or_default(&args.editor, "EDITOR", "vi"))?;
     {
         let mut writer = BufWriter::new(&mut editor);
-        gen.write_halfdiff(&mut writer)?;
+        builder.write_halfdiff(&mut writer)?;
         writer
             .flush()
             .context("failed to flush the tempfile. aborting.")?;
@@ -101,7 +101,7 @@ fn main() -> Result<()> {
 
     // read the edit result, and parse it into a unified diff
     let mut reader = BufReader::new(&mut editor);
-    let patch = gen.read_halfdiff(&mut reader)?;
+    let patch = builder.read_halfdiff(&mut reader)?;
 
     // then apply the patch
     if !patch.is_empty() {

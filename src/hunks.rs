@@ -77,7 +77,7 @@ impl MatchExtender for GrepResult {
             .hits
             .iter()
             .filter_map(|x| {
-                if invert ^ file_ids.get(&self.files[x.file_id]).is_some() {
+                if invert ^ file_ids.contains(&self.files[x.file_id]) {
                     Some(*x)
                 } else {
                     None

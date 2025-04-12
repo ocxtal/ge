@@ -1,5 +1,5 @@
 use crate::hunks::Hunks;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use std::collections::HashMap;
 use std::fmt::Write as FmtWrite;
 use std::io::{Read, Write};

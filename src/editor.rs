@@ -129,7 +129,7 @@ impl Write for Editor {
 #[cfg(test)]
 mod tests {
     use crate::Editor;
-    use std::io::{Read, Write};
+    use std::io::Write;
 
     // we expect nano, vim, and grep exist in the environment
     #[test]
@@ -154,14 +154,11 @@ mod tests {
 
     #[test]
     fn test_passthrough() {
-        let mut editor = Editor::new("touch").unwrap();
+        let mut editor = Editor::new("touch", false).unwrap();
 
         let input = "the quick brown fox jumps over the lazy dog.";
         editor.write_all(input.as_bytes()).unwrap();
         editor.wait().unwrap();
-
-        let mut output = String::new();
-        editor.read_to_string(&mut output).unwrap();
-        assert_eq!(output.as_str(), input);
+        assert_eq!(editor.get_buf(), input.as_bytes());
     }
 }

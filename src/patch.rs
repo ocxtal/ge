@@ -2,7 +2,7 @@ use crate::hunks::Hunks;
 use anyhow::{Context, Result, anyhow};
 use std::collections::HashMap;
 use std::fmt::Write as FmtWrite;
-use std::io::{Read, Write};
+use std::io::Write;
 
 struct LineAccumulator<'a, 'b> {
     id: usize,
@@ -259,11 +259,7 @@ impl PatchBuilder {
         Ok(())
     }
 
-    pub fn read_halfdiff(&self, src: &mut dyn Read) -> Result<String> {
-        let mut buf = Vec::new();
-        src.read_to_end(&mut buf)
-            .context("failed to read the edit result. aborting.")?;
-
+    pub fn parse_halfdiff(&self, buf: &[u8]) -> Result<String> {
         let mut patch = String::new();
         let mut hunks = HunkAccumulator::new();
         let mut lines = LineAccumulator::new(&self.raw_hunks);

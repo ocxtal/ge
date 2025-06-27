@@ -6,7 +6,7 @@ mod patch;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::io::{BufReader, BufWriter, Write};
+use std::io::{BufWriter, Write};
 
 use crate::editor::Editor;
 use crate::git::{Git, GrepOptions};
@@ -45,6 +45,9 @@ struct Args {
 
     #[clap(short, long, help = "Use <EDITOR> to edit matches [default: vi]")]
     editor: Option<String>,
+
+    #[clap(short, long, help = "Get edited halfdiff from stdout")]
+    stdout: bool,
 
     #[clap(long, help = "Use <PAGER> to preview matches [default: less -F]")]
     pager: Option<String>,
@@ -87,7 +90,10 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let mut editor = Editor::new(&arg_or_env_or_default(&args.editor, "EDITOR", "vi"))?;
+    let mut editor = Editor::new(
+        &arg_or_env_or_default(&args.editor, "EDITOR", "vi"),
+        args.stdout,
+    )?;
     {
         let mut writer = BufWriter::new(&mut editor);
         builder.write_halfdiff(&mut writer)?;
@@ -100,8 +106,7 @@ fn main() -> Result<()> {
     editor.wait()?;
 
     // read the edit result, and parse it into a unified diff
-    let mut reader = BufReader::new(&mut editor);
-    let patch = builder.read_halfdiff(&mut reader)?;
+    let patch = builder.parse_halfdiff(editor.get_buf())?;
 
     // then apply the patch
     if !patch.is_empty() {

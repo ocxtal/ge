@@ -1,15 +1,17 @@
 use anyhow::{Context, Result, anyhow};
 use std::io::{Read, Seek, Write};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use tempfile::NamedTempFile;
 
 pub struct Editor {
     args: Vec<String>,
     file: NamedTempFile,
+    read_stdout: bool,
+    buf: Vec<u8>,
 }
 
 impl Editor {
-    pub fn new(editor: &str) -> Result<Self> {
+    pub fn new(editor: &str, read_stdout: bool) -> Result<Self> {
         // create tempfile first
         let file = NamedTempFile::new().context("failed to create tempfile. aborting.")?;
         let name = file.path().to_str().unwrap().to_string();
@@ -35,7 +37,12 @@ impl Editor {
         // add the target file
         args.push(name);
 
-        Ok(Editor { args, file })
+        Ok(Editor {
+            args,
+            file,
+            read_stdout,
+            buf: Vec::new(),
+        })
     }
 
     fn exists(editor: &str) -> bool {
@@ -71,37 +78,42 @@ impl Editor {
 
     pub fn wait(&mut self) -> Result<()> {
         // invoke the actual process here
-        let mut editor = Command::new(&self.args[0])
+        let editor = Command::new(&self.args[0])
             .args(&self.args[1..])
+            .stdout(Stdio::piped())
             .spawn()
             .with_context(|| format!("failed to start editor {:?}. aborting.", self.args[0]))?;
         let output = editor
-            .wait()
+            .wait_with_output()
             .context("editor exited unexpectedly. aborting.")?;
-        if !output.success() {
+        if !output.status.success() {
             return Err(anyhow!("editor exited and returned an error. aborting."));
         }
 
-        // make sure the tempfile exists
-        // (vim and some other editors creates another working file and rename it to the original on quit,
-        // which cause a missing-tempfile error. so here we check the tempfile we created still exists
-        // with the same inode, by re-opening the file after the editor finished.)
-        let _file = self.file.reopen().context(
-            "the tempfile is missing (the editor might have closed or changed the inode of the file). aborting.",
-        )?;
+        if self.read_stdout {
+            self.buf.extend_from_slice(&output.stdout);
+        } else {
+            // make sure the tempfile exists
+            // (vim and some other editors creates another working file and rename it to the original on quit,
+            // which cause a missing-tempfile error. so here we check the tempfile we created still exists
+            // with the same inode, by re-opening the file after the editor finished.)
+            let _file = self.file.reopen().context(
+                "the tempfile is missing (the editor might have closed or changed the inode of the file). aborting.",
+            )?;
 
-        // seek to the head before reading the content...
-        self.file
-            .rewind()
-            .context("failed to seek the tempfile. aborting.")?;
-
+            // seek to the head before reading the content...
+            self.file
+                .rewind()
+                .context("failed to seek the tempfile. aborting.")?;
+            self.file
+                .read_to_end(&mut self.buf)
+                .context("failed to read the tempfile. aborting.")?;
+        }
         Ok(())
     }
-}
 
-impl Read for Editor {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.file.read(buf)
+    pub fn get_buf(&self) -> &[u8] {
+        &self.buf
     }
 }
 
@@ -118,7 +130,7 @@ impl Write for Editor {
 #[cfg(test)]
 mod tests {
     use crate::Editor;
-    use std::io::{Read, Write};
+    use std::io::Write;
 
     // we expect nano, vim, and grep exist in the environment
     #[test]
@@ -143,14 +155,11 @@ mod tests {
 
     #[test]
     fn test_passthrough() {
-        let mut editor = Editor::new("touch").unwrap();
+        let mut editor = Editor::new("touch", false).unwrap();
 
         let input = "the quick brown fox jumps over the lazy dog.";
         editor.write_all(input.as_bytes()).unwrap();
         editor.wait().unwrap();
-
-        let mut output = String::new();
-        editor.read_to_string(&mut output).unwrap();
-        assert_eq!(output.as_str(), input);
+        assert_eq!(editor.get_buf(), input.as_bytes());
     }
 }

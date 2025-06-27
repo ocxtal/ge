@@ -15,7 +15,7 @@ impl Editor {
         let name = file.path().to_str().unwrap().to_string();
 
         // break it by spaces to extract the base command
-        let mut args: Vec<_> = editor.split_whitespace().map(|x| x.to_string()).collect();
+        let mut args: Vec<_> = shlex::split(&editor).context("failed to parse the editor command. aborting.")?;
 
         // check if it exists
         if !Self::exists(&args[0]) {

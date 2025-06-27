@@ -36,7 +36,12 @@ impl Editor {
         // add the target file
         args.push(name);
 
-        Ok(Editor { args, file, read_stdout, buf: Vec::new() })
+        Ok(Editor {
+            args,
+            file,
+            read_stdout,
+            buf: Vec::new(),
+        })
     }
 
     fn exists(editor: &str) -> bool {
@@ -99,7 +104,8 @@ impl Editor {
             self.file
                 .rewind()
                 .context("failed to seek the tempfile. aborting.")?;
-            self.file.read_to_end(&mut self.buf)
+            self.file
+                .read_to_end(&mut self.buf)
                 .context("failed to read the tempfile. aborting.")?;
         }
         Ok(())

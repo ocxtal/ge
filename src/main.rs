@@ -90,7 +90,10 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let mut editor = Editor::new(&arg_or_env_or_default(&args.editor, "EDITOR", "vi"), args.stdout)?;
+    let mut editor = Editor::new(
+        &arg_or_env_or_default(&args.editor, "EDITOR", "vi"),
+        args.stdout,
+    )?;
     {
         let mut writer = BufWriter::new(&mut editor);
         builder.write_halfdiff(&mut writer)?;

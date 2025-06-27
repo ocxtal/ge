@@ -264,7 +264,7 @@ impl PatchBuilder {
         let mut hunks = HunkAccumulator::new();
         let mut lines = LineAccumulator::new(&self.raw_hunks);
 
-        let diff = std::str::from_utf8(&buf)
+        let diff = std::str::from_utf8(buf)
             .context("failed parse the edit result as a UTF-8 string. aborting.")?;
 
         for l in diff.lines() {
